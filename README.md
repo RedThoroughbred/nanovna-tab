@@ -2,6 +2,8 @@
   <img src="docs/images/banner.png" alt="The VNA tab reading an antenna: SWR 1.52 at 906.875 MHz, grade B, beside its Smith chart" width="100%">
 </p>
 
+<p align="center"><img src=".claude-plugin/icon.png" alt="nanovna-tab icon: a Smith chart with a glowing trace curling into the 50-ohm centre" width="112"></p>
+
 <h1 align="center">nanovna-tab</h1>
 
 <p align="center">

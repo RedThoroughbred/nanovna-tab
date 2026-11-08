@@ -121,7 +121,7 @@ One press makes a tall report card from the tab's own pictures, as an SVG and a 
 
 ## Wildcat RF
 
-nanovna-tab is part of Wildcat RF, the radio instruments I build for Claude Code. Its sibling, a Radio tab for the RTL-SDR Blog V4, is on its way.
+nanovna-tab is part of Wildcat RF, the radio instruments I build for Claude Code. Its sibling is [rtl-sdr-tab](https://github.com/RedThoroughbred/rtl-sdr-tab), a Radio tab for the RTL-SDR Blog V4, in the same instrument look.
 
 I built it with Claude Code as my coding partner.
 

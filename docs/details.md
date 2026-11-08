@@ -11,6 +11,7 @@ New here? Start with the [README](../README.md): it has the pictures, the instal
 - [Calibrating](#calibrating)
 - [The guide](#the-guide) and [the report card](#the-report-card)
 - [The status line](#the-status-line)
+- [Tools for Claude](#tools-for-claude)
 - [Commands](#commands)
 - [How it works](#how-it-works)
 - [Files](#files)
@@ -355,6 +356,23 @@ The line under the prompt shows only while a NanoVNA is connected:
 
 </details>
 
+## Tools for Claude
+
+The plugin gives Claude three tools and a skill. The tools use the same code, queue and lock as the tab's buttons, so a tool call and a click never collide.
+
+| Tool | What it does | What it can't do |
+|---|---|---|
+| `vna_reading` | The antenna now, in words and numbers: connected or not, band and calibration, SWR, return loss and R & X at 906.875, 910.525 and 915 MHz (or the band's targets), grade, verdict, best SWR, the stretch under 2:1, resonance and the trim words. Uses the shared reading when it's under about 10 seconds old, else one short sweep. `fresh: true` forces a new sweep. | Change anything on the NanoVNA. |
+| `vna_antennas` | Your saved antennas: the list (colour, versions, SWR at 907, best), one antenna's history (`name`), or the compare table (`a` and `b`). | Change the Library or touch the NanoVNA. |
+| `vna_action` | One safe action: `save <name>`, `markers mesh\|best`, `band <id>` or `band mesh`, `trim snip\|reset\|meshtastic\|meshcore\|<MHz>`, `export [name]`. | Calibrate, save the power-on layout, delete an antenna, switch the X trace, record QC, or write any NanoVNA save slot. It says to do those in the tab. |
+
+`band` only recalls a slot that already holds a calibration. It never writes one.
+
+The `antenna-coach` skill ([`skills/antenna-coach/SKILL.md`](../skills/antenna-coach/SKILL.md)) loads when you ask about antennas, SWR, the NanoVNA, tuning or trimming. It teaches Claude to explain the readings from first principles, to run the trim loop with the tab's own words and thresholds, and to send you to `/vna` when a picture helps.
+
+> [!NOTE]
+> Never connect a transmitting radio, or a node's antenna output, to the NanoVNA. Claude is told the same in every tool description. Calibration and the power-on save are yours to do in the tab.
+
 ## Commands
 
 Every command answers within 7 seconds. A press that takes longer says "Working on it" and finishes in the tab.
@@ -634,6 +652,7 @@ It draws the tab on the terminal, the desktop, VS Code and the phone, from a cap
 - bands: switching to a band and back (recall N, then recall 0, with nothing calibrated or saved), a band on slot 0 offering no calibration, and the power-on button's refusals and its confirmation;
 - the trim assistant's steps, crossing the target, and the undo hint;
 - own tabs, and the export card: the tab's pictures, unique ids, sizes, the file names it hands on, and a failed PNG;
+- the tools: each registered with its schema, `vna_reading` from a fresh shared reading (no sweep) and from one `live` call when stale, offline and busy answers, `vna_antennas` list, history and compare, `vna_action` through the queue, and the refusals for calibrating, the power-on save, deleting, the X trace and QC;
 - the status line and its Herdr file: outside and inside Herdr, nothing while no NanoVNA is connected, unplugging, the levels, and hide and show.
 
 </details>

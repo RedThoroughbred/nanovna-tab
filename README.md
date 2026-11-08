@@ -114,6 +114,34 @@ An open port, a loose connector or an RP-SMA antenna on an SMA port reads as not
 
 One press makes a tall report card from the tab's own pictures, as an SVG and a 1080-pixel-wide PNG, ready to share.
 
+## Ask Claude
+
+Version 0.7.0 lets Claude use the NanoVNA too. Three tools and a skill come with the plugin, so you can just talk:
+
+- "How is my antenna doing?" Claude reads the NanoVNA and tells you the SWR, the grade and what it means.
+- "Walk me through trimming this whip to 906.875." Claude asks for one small cut, reads the antenna again after each one, and says closer, passed it, or on frequency.
+- "Which of my saved antennas is best, and did my last trim help?" Claude reads your Library and compares them.
+
+Claude can read the antenna, read your saved antennas, and do the safe things the buttons do: save an antenna, place the markers, switch bands, log a trim step and make the report card. The `antenna-coach` skill teaches it to explain SWR, return loss, R & X and the Smith chart, and to coach a trim, in plain words. [The details](docs/details.md#tools-for-claude) list every tool.
+
+> [!WARNING]
+> Claude can't calibrate, save the power-on layout, delete an antenna or write a NanoVNA save slot. Those stay in the tab, where you confirm them. And never connect a transmitting radio to the NanoVNA.
+
+## What's new in 0.7.0
+
+- **Tools for Claude:** `vna_reading`, `vna_antennas` and `vna_action`, so Claude can read the antenna, your Library, and do the safe button presses.
+- **The `antenna-coach` skill:** teaches Claude to read SWR, return loss, R & X and the Smith chart, and to run the trim loop with you.
+- A tool press and a click on the tab share one queue, so they never collide.
+
+## Updating
+
+```
+claude plugin marketplace update nanovna-tab
+claude plugin update vna@nanovna-tab
+```
+
+Then run `/reload-plugins` in a session that's already open.
+
 ## How it works
 
 - The tab talks to the NanoVNA through `scripts/vna.py`, a standard-library Python script that also works on its own.

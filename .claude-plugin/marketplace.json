@@ -1,6 +1,6 @@
 {
   "name": "nanovna-tab",
-  "description": "A NanoVNA tab for Claude Code: live SWR with a plain-language verdict, a trim assistant, an antenna library, QC and band presets.",
+  "description": "A NanoVNA tab for Claude Code: live SWR with a plain-language verdict, a trim assistant, an antenna library, QC and band presets, with tools and a coaching skill for Claude.",
   "owner": {
     "name": "Seth Egger"
   },
@@ -10,7 +10,7 @@
       "source": "./",
       "category": "productivity",
       "homepage": "https://github.com/RedThoroughbred/nanovna-tab",
-      "description": "A VNA tab that drives a NanoVNA over USB and teaches what it reads: live SWR at the mesh frequencies with a grade and a verdict, SWR / return loss / R & X / Smith views, a live trim assistant, an antenna library with history and compare, a QC mode with PASS/FAIL and certificates, band presets with their own calibration slots, and a report-card export. /vna to open it."
+      "description": "A VNA tab that drives a NanoVNA over USB and teaches what it reads: live SWR at the mesh frequencies with a grade and a verdict, SWR / return loss / R & X / Smith views, a live trim assistant, an antenna library with history and compare, a QC mode with PASS/FAIL and certificates, band presets with their own calibration slots, and a report-card export. /vna to open it. Claude can read the antenna and do the safe button presses with three tools, and the antenna-coach skill teaches SWR and trimming."
     }
   ]
 }

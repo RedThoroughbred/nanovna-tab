@@ -5001,11 +5001,9 @@ async function answer($: any, p: Promise<string>): Promise<{ text: string }> {
 // most one short sweep. When neither works the last reading stays and `why` says so.
 async function ensureReading($: any, force = false): Promise<{ fresh: boolean; why: string; now: number }> {
   const now = await $.clock.now()
-  if (!force) {
-    const shared = await readJsonFile($, LIVE_FILE)
-    if (shared) applyLive($, shared, now)
-    if (live && now - liveAt < FRESH_MS) return { fresh: true, why: '', now }
-  }
+  const shared = await readJsonFile($, LIVE_FILE)
+  if (shared) applyLive($, shared, now)
+  if (!force && live && now - liveAt < FRESH_MS) return { fresh: true, why: '', now }
   const r = await within($, script($, ['live', '--session', SESSION, '--wait', '2'], 7000, 'free'), 7500)
   if (r && !r.busy && typeof r.connected === 'boolean') {
     applyLive($, r, await $.clock.now())

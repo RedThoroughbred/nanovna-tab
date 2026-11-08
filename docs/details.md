@@ -420,7 +420,7 @@ The tab talks to the NanoVNA through one script, [`scripts/vna.py`](../scripts/v
 ### From a press to the NanoVNA
 
 ```mermaid
-flowchart LR
+flowchart TD
     press["A button or a /vna command"] --> queue["The tab's queue, one press at a time"]
     poll["The 3-second poll"] -.->|waits for presses| queue
     queue --> vnapy["scripts/vna.py"]
@@ -481,14 +481,14 @@ sequenceDiagram
     participant S as live.json
     Note over A,B: Every tab polls every 3 s
     A->>V: poll
-    V->>V: A holds the lease, renew it for 10 s
-    V->>N: sweep, because a VNA tab is on screen
+    V->>V: renew A's lease, 10 s
+    V->>N: sweep (a VNA tab is on screen)
     N-->>V: the reading
     V->>S: share it
     B->>V: poll
     V->>S: read the shared reading
-    V-->>B: the reading A took, with no sweep
-    Note over A,S: When A quits or its lease runs out, the next session to poll takes over
+    V-->>B: A's reading, no sweep
+    Note over A,S: When A quits, the next session to poll takes over
 ```
 
 - **A lease.** The session that polls holds `~/Library/Caches/vna/lease.json`: its id, its Claude process, and until when (10 s, renewed with each poll). The others read the reading it writes to `~/Library/Application Support/vna/live.json`, stamped with when it was taken, and never sweep. When the holder's Claude process is gone, or its lease runs out, the next session to poll takes over.

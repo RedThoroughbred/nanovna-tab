@@ -20,13 +20,19 @@ I test and tune antennas for my Meshtastic and MeshCore nodes. The NanoVNA knows
 
 ## Install
 
-In Claude Code 2.1.275 or later:
+In Claude Code 2.1.275 or later, type:
 
 ```
 /plugin install vna --marketplace RedThoroughbred/nanovna-tab
 ```
 
-Plug in the NanoVNA and type `/vna`.
+In the Claude desktop app, `/plugin` opens the app's own plugin settings instead, so run this in a terminal:
+
+```
+claude plugin install vna --marketplace RedThoroughbred/nanovna-tab
+```
+
+In a session that's already open, run `/reload-plugins`. Plug in the NanoVNA and type `/vna`.
 
 ## What you need
 

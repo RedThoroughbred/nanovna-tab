@@ -10,10 +10,10 @@
 </p>
 
 <p align="center">
-  <img alt="Claude Code plugin" src="https://img.shields.io/badge/Claude%20Code-plugin-d97757">
-  <img alt="NanoVNA-H4 with DiSlord firmware 1.2.x" src="https://img.shields.io/badge/NanoVNA--H4-DiSlord%201.2.x-3fb950">
-  <img alt="macOS over USB" src="https://img.shields.io/badge/macOS-USB-555555">
-  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-blue"></a>
+  <img alt="Claude Code plugin" src="docs/badges/claude-code.svg">
+  <img alt="NanoVNA-H4 with DiSlord firmware 1.2.x" src="docs/badges/nanovna.svg">
+  <img alt="macOS over USB" src="docs/badges/macos.svg">
+  <a href="LICENSE"><img alt="MIT license" src="docs/badges/license.svg"></a>
 </p>
 
 I test and tune antennas for my Meshtastic and MeshCore nodes. The NanoVNA knows everything about an antenna, but it says it in numbers on a 4-inch screen. I wanted those numbers to explain themselves, right where I already work. So I built this tab: it turns the NanoVNA into an instrument panel beside Claude Code, and it teaches you what you're looking at while you use it.

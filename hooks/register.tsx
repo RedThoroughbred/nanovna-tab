@@ -1,5 +1,6 @@
 import type { Register } from 'claude-code'
 import { KEEP_FRESH_MS, keepModStatusFresh, postModStatus, startModStatus, type Level } from './mod-status'
+import { parseAction, registerTools } from './tools'
 
 // The VNA tab: a NanoVNA on the Mac's USB (or the Wi-Fi bridge), driven
 // through scripts/vna.py, built to teach antenna reading and to test units.
@@ -2993,6 +2994,10 @@ function compareText(): string {
   const a = cmpA ? groups().find(g => g.label === cmpA) : undefined
   const b = cmpB ? groups().find(g => g.label === cmpB) : undefined
   if (!a || !b) return 'Pick two saved antennas: /vna compare <a> <b>, or the A and B buttons in the tab.'
+  return compareTextOf(a, b)
+}
+
+function compareTextOf(a: Group, b: Group): string {
   const rows = compareRows(a, b)
   const out = [`Compare  A: ${a.label} (${day(a.latest.saved)})   B: ${b.label} (${day(b.latest.saved)})`]
   for (const [k, va, vb, win] of rows) out.push(`${k.padEnd(13)} ${va.padEnd(16)} ${vb.padEnd(16)} ${win < 0 ? '← A' : win > 0 ? '← B' : ''}`)
@@ -4992,27 +4997,192 @@ async function answer($: any, p: Promise<string>): Promise<{ text: string }> {
   return { text: t ?? endText(null, '', 'it') }
 }
 
-// /vna with nothing after it: the freshest shared reading, else at most one short sweep, else what we had.
-async function quickReport($: any): Promise<string> {
+// The freshest reading we can get: the shared one when it is under FRESH_MS old (unless force), else at
+// most one short sweep. When neither works the last reading stays and `why` says so.
+async function ensureReading($: any, force = false): Promise<{ fresh: boolean; why: string; now: number }> {
   const now = await $.clock.now()
-  const shared = await readJsonFile($, LIVE_FILE)
-  if (shared) applyLive($, shared, now)
-  if (live && now - liveAt < FRESH_MS) return report()
+  if (!force) {
+    const shared = await readJsonFile($, LIVE_FILE)
+    if (shared) applyLive($, shared, now)
+    if (live && now - liveAt < FRESH_MS) return { fresh: true, why: '', now }
+  }
   const r = await within($, script($, ['live', '--session', SESSION, '--wait', '2'], 7000, 'free'), 7500)
   if (r && !r.busy && typeof r.connected === 'boolean') {
     applyLive($, r, await $.clock.now())
-    return report()
+    return { fresh: true, why: '', now }
   }
   const why = r?.busy ? String(r.say ?? 'NanoVNA busy.') : `NanoVNA busy or not answering${r?.error ? ` (${r.error})` : ''}.`
   if (r?.busy) busyNote = why
-  if (!liveAt) return `${why} No reading yet.`
-  return `${why} Last reading ${ago(now - liveAt)} ago:\n${report()}`
+  return { fresh: false, why, now }
+}
+
+// /vna with nothing after it: the freshest shared reading, else at most one short sweep, else what we had.
+async function quickReport($: any): Promise<string> {
+  const g = await ensureReading($)
+  if (g.fresh) return report()
+  if (!liveAt) return `${g.why} No reading yet.`
+  return `${g.why} Last reading ${ago(g.now - liveAt)} ago:\n${report()}`
+}
+
+// ---------------------------------------------------------------- the tools Claude can call (hooks/tools.ts)
+
+// A tool's press waits this long for the queue; past it the press goes on and the answer says so.
+const TOOL_WAIT_MS = 30_000
+const COLOR_NAMES = ['cyan', 'magenta', 'sky blue', 'violet', 'ice', 'pink', 'teal', 'lilac']
+
+const r1 = (n: number | undefined | null, d = 2): number | null => (typeof n === 'number' && Number.isFinite(n) ? Number(n.toFixed(d)) : null)
+
+// The numbers behind report(), for the vna_reading tool.
+function readingData(): Record<string, unknown> {
+  if (!live?.connected) return { connected: false }
+  const m = live.metrics
+  const bd = activeBand()
+  const cs = calStatus()
+  const out: Record<string, unknown> = {
+    connected: true,
+    via: live.via ?? 'usb',
+    band: bd ? { id: bd.id, name: bd.name, mhz: bd.band } : null,
+    sweepMhz: live.sweep ? [live.sweep.start / 1e6, live.sweep.stop / 1e6] : null,
+    calibrated: cs.ok,
+    calibration: cs.text,
+    slot: typeof live.slot === 'number' ? live.slot : null,
+  }
+  if (!m) return out
+  if (m.best.swr > 15) return { ...out, portOpen: true, say: 'PORT 1 reads open: no antenna, a loose plug, or an RP-SMA antenna (hole in the middle instead of a pin).' }
+  const mark = (k?: Mark) =>
+    k
+      ? { name: k.name ?? null, mhz: k.mhz, swr: r1(k.swr), returnLossDb: r1(k.rl, 1), resistanceOhm: k.z ? r1(k.z[0], 1) : null, reactanceOhm: k.z ? r1(k.z[1], 1) : null, word: verdict(k.swr).text }
+      : null
+  const hm = heroMarks(m)
+  const onMeshBand = !bd || bd.id === 'mesh'
+  const marks = onMeshBand ? [m.meshtastic ? { ...mark(m.meshtastic), name: 'Meshtastic' } : null, m.meshcore ? { ...mark(m.meshcore), name: 'MeshCore' } : null, m.mid ? { ...mark(m.mid), name: '915' } : null] : [mark(hm?.mt), mark(hm?.mc)]
+  const worst = hm ? Math.max(hm.mt.swr, hm.mc?.swr ?? 0) : m.best.swr
+  const g = onMeshBand ? gradeOf(m) : grade(worst)
+  const w = trimWords()
+  const t = trimTarget()
+  return {
+    ...out,
+    marks: marks.filter(Boolean),
+    grade: g,
+    verdict: onMeshBand ? verdictLine(m) : bandVerdict(worst, bd?.name ?? ''),
+    best: { mhz: m.best.mhz, swr: r1(m.best.swr) },
+    under2Mhz: m.under2 ?? null,
+    resonance: m.resonance ? { mhz: r1(m.resonance.mhz, 1), hint: m.resonance.hint } : null,
+    trim: { targetMhz: t.f, targetName: t.name, say: w.head, why: w.sub, undo: w.undo || null, onFrequency: w.arrow === 'on', passed: w.passed, resonantMhz: r1(trimNow()?.f ?? null, 2) },
+  }
+}
+
+async function toolReading($: any, fresh: boolean): Promise<string> {
+  {
+    await loadStore($)
+    if (!presets) await refreshPresets($)
+    const g = await ensureReading($, fresh)
+    const age = liveAt ? Math.max(0, Math.round(((await $.clock.now()) - liveAt) / 1000)) : null
+    const head = g.fresh ? '' : `${g.why} ${liveAt ? `Showing the last reading, ${ago((await $.clock.now()) - liveAt)} old.` : 'No reading yet.'}\n`
+    const data = { ...readingData(), ageSeconds: age, fresh: g.fresh }
+    return `${head}${report()}\n\nNumbers:\n${JSON.stringify(data)}`
+  }
+}
+
+async function toolAntennas($: any, q: { name?: string; a?: string; b?: string }): Promise<string> {
+  {
+    await loadStore($)
+    await refreshLibrary($)
+    if (q.a || q.b) {
+      const a = q.a ? findGroup(q.a) : undefined
+      const b = q.b ? findGroup(q.b) : undefined
+      if (!a || !b) return `Could not find two saved antennas for "${q.a ?? ''}" and "${q.b ?? ''}". Saved: ${groups().map(g => g.label).join(', ') || 'none'}.`
+      return compareTextOf(a, b)
+    }
+    if (q.name) {
+      const g = findGroup(q.name)
+      if (!g) return `No saved antenna called "${q.name}". Saved: ${groups().map(x => x.label).join(', ') || 'none'}.`
+      return [
+        `${g.label}: ${g.items.length} sweep${g.items.length > 1 ? 's' : ''}${g.items.length > 1 ? `, SWR at 907 ${trend(g)}` : ''}`,
+        ...g.items.map(i => `  ${day(i.saved).padEnd(15)} SWR ${fmt(i.metrics?.meshtastic?.swr)} at 906.875, ${fmt(i.metrics?.meshcore?.swr)} at 910.525  best ${fmt(i.metrics?.best?.swr)} @${i.metrics?.best?.mhz ?? '?'} MHz`),
+      ].join('\n')
+    }
+    const gs = groups()
+    if (!gs.length) return 'No saved antennas yet. Save the one on the NanoVNA with vna_action save <name>.'
+    return [
+      `${gs.length} saved antenna${gs.length > 1 ? 's' : ''}, best SWR at 907 first:`,
+      ...gs.map(g => {
+        const m = g.latest.metrics
+        const c = COLOR_NAMES[ANT.indexOf(antColor(g.label))] ?? 'colour'
+        return `  ${g.label} · ${c} · ${g.items.length} version${g.items.length > 1 ? 's' : ''} · SWR ${fmt(m?.meshtastic?.swr)} at 907, best ${fmt(m?.best?.swr)} at ${m?.best?.mhz ?? '?'} MHz · saved ${day(g.latest.saved)}`
+      }),
+    ].join('\n')
+  }
+}
+
+async function toolAct($: any, verb: string, arg: string): Promise<string> {
+  {
+    await loadStore($)
+    const wait = async (p: Promise<string>) => (await within($, p, TOOL_WAIT_MS)) ?? endText(null, '', verb)
+    switch (verb) {
+      case 'save':
+        return wait(saveAntenna($, arg))
+      case 'markers':
+        return wait(setMarkers($, arg === 'best' ? 'best' : 'mesh'))
+      case 'band':
+        await refreshPresets($)
+        return wait(switchBand($, arg))
+      case 'export':
+        await ensureReading($)
+        return wait(exportCard($, arg))
+      case 'trim': {
+        if (arg === 'reset') {
+          await trimReset($)
+          return 'Trim timeline cleared.'
+        }
+        await ensureReading($)
+        if (arg === 'snip') return `${await trimSnip($)}\n${trimText()}`
+        if (arg === 'meshtastic') await setTrimTarget($, 906.875)
+        else if (arg === 'meshcore') await setTrimTarget($, 910.525)
+        else await setTrimTarget($, Number(arg))
+        return trimText()
+      }
+      default:
+        return 'Not available as a tool.'
+    }
+  }
 }
 
 export const register: Register = on => {
+  // The three tools (registered at session.start by registerTools): each answers a failure in words.
+  on('tool.call', { tool: 'mcp__vna__vna_reading' }, async ($, e) => {
+    try {
+      return { result: await toolReading($, (e as any).fresh === true) }
+    } catch (err: any) {
+      return { result: `The VNA tool failed: ${String(err?.message ?? err)}` }
+    }
+  })
+  on('tool.call', { tool: 'mcp__vna__vna_antennas' }, async ($, e) => {
+    const q = e as any
+    const s = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined)
+    try {
+      return { result: await toolAntennas($, { name: s(q.name), a: s(q.a), b: s(q.b) }) }
+    } catch (err: any) {
+      return { result: `The VNA tool failed: ${String(err?.message ?? err)}` }
+    }
+  })
+  on('tool.call', { tool: 'mcp__vna__vna_action' }, async ($, e) => {
+    const p = parseAction(e)
+    if (!p.ok) return { result: p.say }
+    try {
+      return { result: await toolAct($, p.verb, p.arg) }
+    } catch (err: any) {
+      return { result: `The VNA tool failed: ${String(err?.message ?? err)}` }
+    }
+  })
+
   on('session.start', async ($, e, next) => {
     // Paths first: everything below reads or writes under the home folder.
     setHome((await $.env.get('HOME')) || '')
+    // The three tools Claude can call (hooks/tools.ts); a failure here never stops the tab.
+    try {
+      await registerTools($)
+    } catch {}
     await $.command.register({
       name: 'vna',
       description: 'Open the VNA tab: live SWR from the NanoVNA with a plain-language verdict, the trim assistant, saved antennas, compare, QC, band presets and calibration',

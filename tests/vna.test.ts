@@ -79,6 +79,7 @@ function world(on: On, live: unknown = LIVE, env?: Record<string, string>): Worl
   })
   on('session.start', async () => ({ cwd: '/tmp' }))
   on('command.register', async (_$, e) => ({ value: { command: e.name } }))
+  on('tool.register', async (_$, e) => ({ value: { tool: `mcp__vna__${e.name}` } }))
   on('ui.open', async (_$, e) => {
     w.opened.push(String((e as any).id))
     return { value: { isPlaced: true as const } }

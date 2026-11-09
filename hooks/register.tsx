@@ -1,111 +1,17 @@
 import type { Register } from 'claude-code'
 import { KEEP_FRESH_MS, keepModStatusFresh, postModStatus, startModStatus, type Level } from './mod-status'
 import { parseAction, registerTools, TOOL_PREFIX } from './tools'
+import { AMBER, ANT, AXIS, BG, BRIGHT, CYAN, DEFAULT_RULES, EXPLAIN, GREEN, GRID, IDLE_MS, LABEL, LCD, LIVE_COLOR, LIVE_MS, LOG_MAX, MAGENTA, MESH, MESH_BAND, MONO, ORANGE, PANE, PATH, PINK, PLOT, POLL_LOG_MS, RED, SANS, SECTIONS, SKY, VIEWS, VIOLET, W_DESK, W_PHONE, YELLOW } from './constants'
+import { DIPOLE_TARGETS, FREQ_STOPS, bandColor, bandVerdict, cardAlt, crossed, dipoleCm, dipoleSvg, fcol, fmtF, fmtOff, lcdNumber, lcdText, meter, qcAlt, resWords, resonanceOf, rlPoints, ruler, swrOfRl, trimArrow, trimOf, whip } from './gauges'
+import { GRADE_COLOR, HIST_MAX, MAX_OVERLAYS, bandLabel, bg, clamp, day, drawnAt, esc, fmt, gam, gammaOfZ, grade, gradeOf, hashLabel, iso, itemSeries, lim, meaning, n2, r1, sameSweep, shade, trend, verdict, verdictLine, zOfGamma, zText, zone } from './readings'
+import { BAND_DEF, areaOf, at, base, blurDef, bracket, cut, dipMark, fadeMask, glowDef, hits, legend, meshDots, n1, niceStep, pathOf, pill, pillRect, placePill, plotBounds, primaryOf, svgDoc, tw, txt, wrapText, zoneCols, zoneFill, zoneGrad } from './svg-kit'
+import { Btn, CMD_WAIT_MS, COLOR_NAMES, EXPORT_PIECE, EXPORT_W, FRESH_MS, Pic, Row, SESSION, TOOL_WAIT_MS, actionQ, ago, blocks, compareRows, compareTextOf, deviceTrouble, guideSvg, guideText, heroLine, isRules, learned, meterBar, nestSvg, parseRules, pollLogged, pollQ, procId, ruleText, stamp, swrLevel, wanted } from './tab-text'
+import type { ActEnd, ActOpts, Badge, BandDef, CalView, Ctx, Frame, Geo, Group, Intent, Item, Lane, Live, Look, Mark, Metrics, Plan, Presets, Proc, Qc, QcCheck, QcLog, Rect, Resonance, Rules, Section, Series, TabView, TrimPoint, TrimRead, TrimWords, View } from './types'
 
-// The VNA tab: a NanoVNA on the Mac's USB (or the Wi-Fi bridge), driven
-// through scripts/vna.py, built to teach antenna reading and to test units.
-// Five places, one row of buttons at the top (0.5.0), each one also openable in
-// its own tab (⤢, /vna tab <view>):
-//   Measure    the hero (SWR at Meshtastic 906.875 and MeshCore 910.525 on
-//              7-segment LCD digits, an SWR meter, a letter grade, a verdict),
-//              the readings, the trimming drawing, and the chart: SWR (zones,
-//              the 902–928 band, the dip, the stretch under 2:1), return loss,
-//              R & X (resonance marked) or the Smith chart.
-//   Trim       the live trim assistant: where the antenna resonates now (X = 0,
-//              else the SWR dip) against a target, an arrow and a plain verdict,
-//              a timeline of every change (seen when the curve moves, or Snip),
-//              and "you passed it" with an undo hint.
-//   Library    saved sweeps grouped by name, one card each in the antenna's own
-//              colour (the same colour on every chart): overlay, compare two
-//              (A/B, the better one shaded), or overlay a history.
-//   QC         PASS/FAIL against a stored rule set as a stamp with a meter per
-//              check; recording writes a CSV row, the sweep and a certificate.
-//   Bands      band presets (2 m, 70 cm, 1090, 433, FM and Seth's own in
-//              presets.json), each with its calibration in its own spare save
-//              slot; Back to Meshtastic recalls slot 0, the power-on state, which
-//              presets never write. The V4 dipole helper. The optional 4th trace
-//              (X) and the guarded "Make this my power-on layout".
-// Presses (0.5.0, the Radio tab's 0.3.4 pattern): every button's press is an
-// intent, shown on the button at once and at the top ("Doing now", "Next"),
-// queued behind one that runs (never dropped), the newest waiting one winning
-// and the same one again joining it; presses run ahead of the polls; each one
-// is timed into ~/Library/Application Support/vna/actions.jsonl.
-// Every picture is an SVG in the Radio tab's instrument palette, drawn at 660 px
-// on the desktop and 360 px on the phone, and handed to the surface with its
-// height (svgHeight), so a refreshed picture never collapses the pane.
-const PANE = 'vna'
 // The home folder comes from the environment at session.start (setHome), never from the code.
 let HOME = ''
-const PATH = `/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin`
-const LIVE_MS = 3000
-const IDLE_MS = 15_000
-const MONO = 'Menlo,monospace'
-const SANS = 'Helvetica,Arial,sans-serif'
-const W_DESK = 660
-const W_PHONE = 360
 let ACTIONS_LOG = '' // set by setHome
-const LOG_MAX = 1000
-const POLL_LOG_MS = 300
 
-// ---------------------------------------------------------------- palette
-// The Radio tab's: dark glass, a teal LCD, amber peaks, turbo-like accents. Green,
-// amber and red only ever mean the SWR zones (≤ 1.5, ≤ 2, above).
-const BG = '#10161a'
-const PLOT = '#0c1215'
-const GRID = '#243238'
-const GRID2 = '#1a252a'
-const AXIS = '#7f9199'
-const LABEL = '#c9d4da'
-const BRIGHT = '#e6edf0'
-const CYAN = '#4fd1e0'
-const AMBER = '#f0c050'
-const YELLOW = '#ffd84a'
-const GREEN = '#7ad67a'
-const MAGENTA = '#e07be0'
-const ORANGE = '#f0a050'
-const RED = '#ff6b6b'
-const SKY = '#7fb8ff'
-const VIOLET = '#a98bff'
-const PINK = '#ff7eb6'
-const TEAL = '#3fd0b0'
-const LILAC = '#d0a8ff'
-const ICE = '#d8f6ff'
-const LCD = '#62f0dc'
-// Each saved antenna's own colour, kept for good (cards, overlays, A/B, history): no green, amber
-// or red, which mean the SWR zones, and no yellow, the live trace.
-const ANT = [CYAN, MAGENTA, SKY, VIOLET, ICE, PINK, TEAL, LILAC]
-const LIVE_COLOR = YELLOW
-const MESH: [number, string][] = [
-  [906.875, 'Meshtastic'],
-  [910.525, 'MeshCore'],
-]
-
-type View = 'swr' | 'rl' | 'rx' | 'smith'
-const VIEWS: [View, string][] = [
-  ['swr', 'SWR'],
-  ['rl', 'Return loss'],
-  ['rx', 'R & X'],
-  ['smith', 'Smith'],
-]
-const EXPLAIN: Record<View, string> = {
-  swr: 'SWR (standing wave ratio) compares the wave sent out with the wave bouncing back. 1.0 is a perfect match; under 1.5 is excellent (4% or less comes back, green), under 2 good (11%, amber), over 3 poor (25% or more, red). The teal stripe is the US 902–928 MHz band, the bracket the stretch under 2:1, the ringed dot the lowest point. The scale is stretched toward 1, where the detail is.',
-  rl: 'Return loss is how far below the outgoing wave the reflection is, in dB: the deeper the dip, the better. 10 dB means 10% of the power comes back (SWR 1.9), 14 dB is SWR 1.5, 20 dB is 1% (SWR 1.22). The NanoVNA’s LOGMAG trace is this same curve.',
-  rx: 'An antenna looks like a resistance R (teal) in series with a reactance X (magenta). The goal is R = 50 Ω and X = 0. Where X crosses 0 the antenna resonates. X below 0 (blue) is capacitive: for a whip, electrically short. X above 0 (orange) is inductive: electrically long.',
-  smith: 'The Smith chart folds R and X into one picture. The centre target is 50 Ω, a perfect match; the right edge is an open circuit, the left a short. The top half is inductive, the bottom capacitive. Inside the amber circle the SWR is under 2, inside the green one under 1.5. The trace runs blue at the low end of the sweep to red at the top; the bright stretch is 902–928 MHz.',
-}
-
-// The five places at the top of the tab, each with its colour.
-type Section = 'measure' | 'trim' | 'library' | 'qc' | 'bands'
-const SECTIONS: [Section, string, string, string][] = [
-  ['measure', 'Measure', LCD, 'the live reading and the chart'],
-  ['trim', 'Trim', YELLOW, 'cutting or bending an antenna: where it resonates now'],
-  ['library', 'Library', MAGENTA, 'saved antennas, each in its own colour'],
-  ['qc', 'QC', AMBER, 'PASS / FAIL for units you sell'],
-  ['bands', 'Bands', SKY, 'other radios: each band its own calibration slot'],
-]
-
-// Views that open in their own tab (⤢, /vna tab <view>).
-type TabView = 'reading' | 'chart' | 'smith' | 'trim' | 'library' | 'qc' | 'bands' | 'guide'
 const TABS: Record<TabView, { id: string; title: string; about: string }> = {
   reading: { id: 'vna-reading', title: 'VNA reading', about: 'the hero readout and the readings' },
   chart: { id: 'vna-chart', title: 'VNA chart', about: 'the chart with its four views' },
@@ -116,120 +22,6 @@ const TABS: Record<TabView, { id: string; title: string; about: string }> = {
   bands: { id: 'vna-bands', title: 'VNA bands', about: 'band presets and the power-on layout' },
   guide: { id: 'vna-guide', title: 'VNA guide', about: 'how the VNA tab works' },
 }
-
-type Rules = { lo: number; hi: number; bandMax: number; spots: number[]; spotMax: number }
-const DEFAULT_RULES: Rules = { lo: 902, hi: 928, bandMax: 2, spots: [906.875, 910.525], spotMax: 1.5 }
-
-type Mark = {
-  name?: string
-  mhz: number
-  swr: number
-  rl?: number
-  z?: [number, number]
-  reflectedPct?: number
-  mismatchDb?: number
-  verdict?: string
-  index?: number
-}
-type Resonance = {
-  mhz: number | null
-  r?: number
-  swr?: number
-  kind?: string
-  trim?: 'long' | 'short' | 'on' | null
-  offsetMhz?: number
-  pct?: number
-  hint: string
-  caveat?: string
-  xSign?: string
-  closest?: { mhz: number; x: number }
-}
-type Metrics = { meshtastic?: Mark; meshcore?: Mark; mid?: Mark; best: Mark; under2: [number, number] | null; resonance?: Resonance | null }
-type QcCheck = { id: string; label: string; pass: boolean; value?: number; mhz?: number; detail: string }
-type Qc = { pass: boolean; rule: string; rules: Rules; checks: QcCheck[]; worst: { mhz: number; swr: number } | null; covered: boolean; failed: string[] }
-type Sweep = { start: number; stop: number; points: number }
-type Trace = { n: number; type: string; ch: string; scale?: number; refpos?: number }
-type Live = {
-  connected: boolean
-  port?: string
-  version?: string
-  board?: string
-  vbatMv?: number | null
-  cal?: string
-  calibrated?: boolean
-  sweep?: Sweep | null
-  metrics?: Metrics | null
-  curve?: [number, number][]
-  s11?: [number, number][]
-  markers?: (Mark & { id: number })[]
-  qc?: Qc
-  via?: 'usb' | 'wifi'
-  bridge?: { host?: string; ip?: string; state: string }
-  error?: string
-  // 0.5.0: which save slot's calibration is in use (null: unknown), how many slots, the traces, a calibration under way.
-  slot?: number | null
-  slots?: number
-  traces?: Trace[]
-  calStep?: string | null
-  calBand?: string | null
-}
-// A band preset as vna.py presets describes it (built in, or Seth's own in presets.json).
-type BandDef = {
-  id: string
-  name: string
-  short: string
-  start: number
-  stop: number
-  points: number
-  band: [number, number]
-  targets: [number, string][]
-  for?: string
-  slot: number | null
-  slotWhy?: string | null
-  cal?: { at?: string; loadRl?: number } | null
-  calOk: boolean | null
-  calOther?: string | null
-  shares?: string[]
-  powerOn?: boolean
-  custom?: boolean
-}
-type Presets = { ok: boolean; file: string; slots: number; spare: number[]; bands: BandDef[]; powerOn?: { at: string; trace3: string } | null; warning?: string | null }
-// The mesh band before vna.py presets has answered (and when it cannot).
-const MESH_BAND: BandDef = {
-  id: 'mesh',
-  name: 'Meshtastic / MeshCore',
-  short: 'Mesh',
-  start: 850e6,
-  stop: 980e6,
-  points: 201,
-  band: [902, 928],
-  targets: MESH,
-  for: 'LoRa node antennas: the power-on layout',
-  slot: 0,
-  calOk: null,
-  powerOn: true,
-}
-type Item = { file: string; label: string; saved: string; metrics: Metrics | null; curve: [number, number][]; s11?: [number, number][] }
-type Group = { label: string; items: Item[]; latest: Item }
-type CalView = { step: string | null; say: string; ok: boolean; band: string }
-type QcRecord = Record<string, string>
-type QcLog = { log: string; dir: string; total: number; passed: number; failed: number; next: string; records: QcRecord[] }
-type Series = {
-  label: string
-  color: string
-  curve: [number, number][]
-  s11?: [number, number][]
-  width: number
-  opacity: number
-  metrics?: Metrics | null
-  isLive?: boolean
-}
-// The drawing's width and whether it is the phone's stacked layout.
-type Geo = { W: number; c: boolean }
-type Grade = 'A' | 'B' | 'C' | 'F'
-// The trim assistant: one reading of where the antenna resonates, and the changes logged.
-type TrimRead = { f: number; method: 'X = 0' | 'SWR dip'; swrT?: number; swrMin: number; edge?: 'below' | 'above'; r?: number }
-type TrimPoint = TrimRead & { n: number; at: number; how: 'start' | 'auto' | 'snip'; delta: number; target: number; passed?: boolean }
 
 let live: Live | null = null
 let wasConnected = false
@@ -269,116 +61,7 @@ let trimPts: TrimPoint[] = []
 let trimRecent: TrimRead[] = []
 let trimLast: TrimRead | null = null
 let trimLastAt = -1
-// When each own tab was last drawn: QC and Trim do their work while someone is looking.
-const drawnAt: Record<string, number> = {}
 // ---------------------------------------------------------------- helpers
-
-function verdict(swr: number | undefined): { text: string; color: string } {
-  if (swr === undefined || swr === null) return { text: '', color: AXIS }
-  if (swr < 1.5) return { text: 'excellent', color: GREEN }
-  if (swr < 2) return { text: 'good', color: AMBER }
-  if (swr < 3) return { text: 'so-so', color: ORANGE }
-  return { text: 'poor', color: RED }
-}
-
-// The zone an SWR falls in: green to 1.5, amber to 2, red above.
-function zone(swr: number): string {
-  return swr <= 1.5 ? GREEN : swr <= 2 ? AMBER : RED
-}
-
-function grade(swr: number): Grade {
-  return swr <= 1.5 ? 'A' : swr <= 2 ? 'B' : swr <= 3 ? 'C' : 'F'
-}
-
-const GRADE_COLOR: Record<Grade, string> = { A: GREEN, B: AMBER, C: ORANGE, F: RED }
-
-// The grade of an antenna: the worse of its two mesh frequencies (the best point when neither is on the sweep).
-function gradeOf(m: Metrics | null | undefined): Grade | null {
-  if (!m) return null
-  const v = [m.meshtastic?.swr, m.meshcore?.swr].filter((x): x is number => typeof x === 'number')
-  return grade(v.length ? Math.max(...v) : m.best.swr)
-}
-
-function verdictLine(m: Metrics): string {
-  const word: Record<Grade, string> = { A: 'Great', B: 'Good', C: 'So-so', F: 'Poor' }
-  const g1 = m.meshtastic ? grade(m.meshtastic.swr) : null
-  const g2 = m.meshcore ? grade(m.meshcore.swr) : null
-  if (g1 && g2 && g1 !== g2) return `${word[g1]} for Meshtastic, ${word[g2].toLowerCase()} for MeshCore`
-  const g = g1 ?? g2 ?? grade(m.best.swr)
-  const who = g1 && g2 ? 'Meshtastic and MeshCore' : g1 ? 'Meshtastic' : g2 ? 'MeshCore' : 'the mesh band'
-  if (g === 'A') return `Great match for ${who}`
-  if (g === 'B') return `Good match for ${who}`
-  if (g === 'C') return `So-so match for ${who}: worth a trim or a better antenna`
-  return `Poor match for ${who}: check the plug, then the antenna`
-}
-
-function fmt(n: number | undefined | null, d = 2): string {
-  return n === undefined || n === null ? '—' : n >= 9.9 ? '>9.9' : n.toFixed(d)
-}
-
-function meaning(swr: number): string {
-  const g = (swr - 1) / (swr + 1)
-  const pct = 100 * g * g
-  return `${pct < 1 ? 'under 1%' : `about ${pct.toFixed(0)}%`} of the power bounces back`
-}
-
-function zText(z?: [number, number]): string {
-  if (!z) return ''
-  return `${z[0].toFixed(1)} ${z[1] >= 0 ? '+' : '−'} j${Math.abs(z[1]).toFixed(1)} Ω`
-}
-
-// "1.258" from the QC log as 1.26.
-function n2(s: string | undefined): string {
-  const n = Number(s)
-  return s && Number.isFinite(n) ? n.toFixed(2) : '—'
-}
-
-function lim(v: number): string {
-  return Number.isInteger(v * 10) ? v.toFixed(1) : String(v)
-}
-
-function day(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  const h = d.getHours()
-  return `${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()]} ${d.getDate()} ${h % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')}${h < 12 ? 'am' : 'pm'}`
-}
-
-function esc(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
-
-function clamp(v: number, a = 0, b = 1): number {
-  return v < a ? a : v > b ? b : v
-}
-
-function rlOf(g: [number, number]): number {
-  return -20 * Math.log10(Math.max(Math.hypot(g[0], g[1]), 1e-9))
-}
-
-// |Γ| of an SWR: 0 for a perfect match, 1 for none.
-function gam(swr: number): number {
-  return swr <= 1 ? 0 : (swr - 1) / (swr + 1)
-}
-
-// Z = 50 (1 + Γ) / (1 − Γ)
-function zOfGamma(g: [number, number]): [number, number] {
-  const [a, b] = g
-  const d = (1 - a) ** 2 + b * b
-  return d < 1e-12 ? [1e6, 0] : [(50 * (1 - a * a - b * b)) / d, (100 * b) / d]
-}
-
-// Γ = (Z − 50) / (Z + 50)
-function gammaOfZ(z: [number, number]): [number, number] {
-  const [r, x] = z
-  const d = (r + 50) ** 2 + x * x
-  return d < 1e-9 ? [1, 0] : [((r - 50) * (r + 50) + x * x) / d, (x * (r + 50) - (r - 50) * x) / d]
-}
-
-// A quarter-wave whip's length in mm at f MHz, with the usual end effect (as vna.py's hint).
-function quarterWave(f: number): number {
-  return (0.95 * 299792.458) / (4 * f)
-}
 
 // Saved sweeps grouped by name, oldest version first; best antenna first by SWR at 907.
 function groups(): Group[] {
@@ -428,16 +111,7 @@ function splitPair(arg: string): [string, string] | null {
   return null
 }
 
-function trend(g: Group): string {
-  const v = g.items.map(i => i.metrics?.meshtastic?.swr).filter((x): x is number => typeof x === 'number')
-  if (v.length < 2) return ''
-  return v.length > 3 ? `${fmt(v[0])} → … → ${fmt(v[v.length - 1])}` : v.map(x => fmt(x)).join(' → ')
-}
-
 // ---------------------------------------------------------------- antenna colours and bands
-
-const HIST_MAX = 8
-const MAX_OVERLAYS = 6
 
 // Each antenna's colour index, kept in the store: a new antenna gets the colour fewest others
 // have (oldest antennas first), so the library reads as a palette and a colour never moves.
@@ -457,25 +131,9 @@ function assignColors(): boolean {
   return changed
 }
 
-function hashLabel(s: string): number {
-  let h = 0
-  for (const ch of s) h = (h * 31 + (ch.codePointAt(0) ?? 0)) >>> 0
-  return h
-}
-
 function antColor(label: string): string {
   const k = antColors[label]
   return ANT[(typeof k === 'number' ? k : hashLabel(label)) % ANT.length] as string
-}
-
-// A colour mixed toward the panel: t = 1 is the colour itself, 0 the background.
-function shade(hex: string, t: number): string {
-  const c = (h: string, i: number) => parseInt(h.slice(1 + 2 * i, 3 + 2 * i), 16)
-  return `#${[0, 1, 2].map(i => Math.round(c(BG, i) + (c(hex, i) - c(BG, i)) * clamp(t)).toString(16).padStart(2, '0')).join('')}`
-}
-
-function sameSweep(a: { start: number; stop: number; points: number } | null | undefined, b: { start: number; stop: number; points: number } | null | undefined): boolean {
-  return !!a && !!b && Math.abs(a.start - b.start) < 1 && Math.abs(a.stop - b.stop) < 1 && a.points === b.points
 }
 
 function bandsAll(): BandDef[] {
@@ -503,10 +161,6 @@ function chartBand(lo: number, hi: number): BandDef | null {
   const fits = (b: BandDef) => b.band[1] > lo && b.band[0] < hi
   if (a && fits(a)) return a
   return [MESH_BAND, ...bandsAll()].find(fits) ?? null
-}
-
-function bandLabel(b: BandDef): string {
-  return b.id === 'mesh' ? 'US 902–928' : `${b.short} ${Number(b.band[0].toFixed(2))}–${Number(b.band[1].toFixed(2))}`
 }
 
 // Whether the calibration in use is good for what is being swept, in plain words.
@@ -569,10 +223,6 @@ function liveSeries(): Series | null {
   return { label: 'Live', color: LIVE_COLOR, curve: live.curve, s11: live.s11, width: 2.4, opacity: 1, metrics: live.metrics, isLive: true }
 }
 
-function itemSeries(i: Item, color: string, label: string, opacity = 0.85): Series {
-  return { label, color, curve: i.curve, s11: i.s11, width: 1.6, opacity, metrics: i.metrics }
-}
-
 function mainSeries(): Series[] {
   const out: Series[] = []
   if (histLabel) {
@@ -625,163 +275,7 @@ function cmpSeries(): Series[] {
 // ---------------------------------------------------------------- drawing basics
 // Every picture is a dark instrument panel, so it reads the same on light and dark themes.
 
-function n1(v: number): string {
-  return v.toFixed(1)
-}
-
-type TxtOpts = { fill?: string; size?: number; anchor?: string; weight?: number; font?: string; opacity?: number; spacing?: number }
-function txt(x: number, y: number, s: string, o: TxtOpts = {}): string {
-  return `<text x="${n1(x)}" y="${n1(y)}" fill="${o.fill ?? AXIS}" font-size="${o.size ?? 10.5}"${o.anchor ? ` text-anchor="${o.anchor}"` : ''}${o.weight ? ` font-weight="${o.weight}"` : ''}${o.opacity !== undefined ? ` fill-opacity="${o.opacity}"` : ''}${o.spacing ? ` letter-spacing="${o.spacing}"` : ''} font-family="${o.font ?? MONO}">${esc(s)}</text>`
-}
-
-// How wide a string draws: Menlo is 0.6 em a character, Helvetica about 0.56 on average.
-function tw(s: string, size: number, font = MONO): number {
-  return [...s].length * size * (font === MONO ? 0.602 : 0.56)
-}
-
-function cut(s: string, n: number): string {
-  return [...s].length > n ? `${[...s].slice(0, n - 1).join('')}…` : s
-}
-
-// Splits a sentence into lines of at most n characters.
-function wrapText(s: string, n: number): string[] {
-  const out: string[] = []
-  let line = ''
-  for (const w of s.split(' ')) {
-    if (line && (line + ' ' + w).length > n) {
-      out.push(line)
-      line = w
-    } else line = line ? `${line} ${w}` : w
-  }
-  if (line) out.push(line)
-  return out
-}
-
-// A label on a dark pill, so it reads over a trace. (x, y) is the text's baseline.
-function pill(x: number, y: number, s: string, o: { fill: string; size?: number; anchor?: 'start' | 'middle' | 'end'; bg?: string }): string {
-  const size = o.size ?? 10
-  const w = tw(s, size) + 10
-  const x0 = o.anchor === 'end' ? x - w : o.anchor === 'middle' ? x - w / 2 : x
-  return (
-    `<rect x="${n1(x0)}" y="${n1(y - size - 1.5)}" width="${n1(w)}" height="${n1(size + 6)}" rx="${n1((size + 6) / 2)}" fill="${o.bg ?? PLOT}" fill-opacity="0.92" stroke="${o.fill}" stroke-opacity="0.55"/>` +
-    txt(x0 + w / 2, y, s, { fill: o.fill, size, anchor: 'middle', weight: 700 })
-  )
-}
-
-// Labels that must not land on one another: each placed label's box, and the first free spot of several.
-type Rect = [number, number, number, number]
-function hits(a: Rect, b: Rect): boolean {
-  return a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3]
-}
-
-function pillRect(x: number, y: number, s: string, size: number, anchor: 'start' | 'middle' | 'end'): Rect {
-  const w = tw(s, size) + 10
-  const x0 = anchor === 'end' ? x - w : anchor === 'middle' ? x - w / 2 : x
-  return [x0 - 2, y - size - 3.5, x0 + w + 2, y + 6.5]
-}
-
-type Spot = [number, number, 'start' | 'middle' | 'end']
-// Draws a pill at the first spot that stays inside `bounds` and clear of `placed` (else the first
-// spot), and records it.
-function placePill(parts: string[], placed: Rect[], spots: Spot[], s: string, fill: string, bounds: Rect, size = 10): void {
-  const fits = (r: Rect) => r[0] >= bounds[0] && r[2] <= bounds[2] && r[1] >= bounds[1] && r[3] <= bounds[3]
-  const rects = spots.map(([x, y, a]) => pillRect(x, y, s, size, a))
-  let k = rects.findIndex(r => fits(r) && !placed.some(p => hits(p, r)))
-  if (k < 0) k = rects.findIndex(r => !placed.some(p => hits(p, r)))
-  if (k < 0) k = 0
-  const [x, y, a] = spots[k] as Spot
-  placed.push(rects[k] as Rect)
-  parts.push(pill(x, y, s, { fill, anchor: a, size }))
-}
-
-function svgDoc(W: number, H: number, body: string): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${body}</svg>`
-}
-
-// Filters in user space: an object-box filter on a flat line has no height and draws nothing.
-function glowDef(id: string, W: number, H: number, sd = 2.2): string {
-  return `<filter id="${id}" filterUnits="userSpaceOnUse" x="${-W}" y="${-H}" width="${3 * W}" height="${3 * H}"><feGaussianBlur stdDeviation="${sd}" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`
-}
-
-function blurDef(id: string, W: number, H: number, sd = 4): string {
-  return `<filter id="${id}" filterUnits="userSpaceOnUse" x="${-W}" y="${-H}" width="${3 * W}" height="${3 * H}"><feGaussianBlur stdDeviation="${sd}"/></filter>`
-}
-
-// A vertical gradient that colours by SWR zone: red above yRA, amber down to yAG, green below.
-// ops are the stop opacities: red top and bottom, amber top and bottom, green top and bottom.
-function zoneGrad(id: string, yTop: number, yBot: number, yRA: number, yAG: number, ops: number[] = [1, 1, 1, 1, 1, 1]): string {
-  const span = yBot - yTop || 1
-  const a = clamp((yRA - yTop) / span)
-  const b = clamp((yAG - yTop) / span)
-  const st = (o: number, c: string, op: number | undefined) => `<stop offset="${o.toFixed(4)}" stop-color="${c}" stop-opacity="${op ?? 1}"/>`
-  return `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="${n1(yTop)}" y2="${n1(yBot)}">${st(0, RED, ops[0])}${st(a, RED, ops[1])}${st(a, AMBER, ops[2])}${st(b, AMBER, ops[3])}${st(b, GREEN, ops[4])}${st(1, GREEN, ops[5])}</linearGradient>`
-}
-
-// A horizontal gradient that colours each column by the zone of the trace above it, switching
-// sharply where the trace crosses 1.5 or 2. pts are [MHz, SWR], low to high.
-function zoneCols(id: string, x0: number, x1: number, pts: [number, number][], xOf: (f: number) => number): string {
-  const cols = [GREEN, AMBER, RED]
-  const th = [1.5, 2]
-  const zi = (s: number) => (s <= 1.5 ? 0 : s <= 2 ? 1 : 2)
-  const span = x1 - x0 || 1
-  const st = (px: number, c: string) => `<stop offset="${clamp((px - x0) / span).toFixed(4)}" stop-color="${c}"/>`
-  const stops: string[] = []
-  let prev: [number, number] | undefined
-  for (const p of pts) {
-    if (!prev) {
-      stops.push(st(x0, cols[zi(p[1])] as string))
-      prev = p
-      continue
-    }
-    const z0 = zi(prev[1])
-    const z1 = zi(p[1])
-    const ks = z1 > z0 ? [z0, z0 + 1].slice(0, z1 - z0) : [z0 - 1, z0 - 2].slice(0, z0 - z1)
-    for (const k of ks) {
-      const b = th[k] as number
-      const t = (b - prev[1]) / (p[1] - prev[1] || 1)
-      const fx = xOf(prev[0] + t * (p[0] - prev[0]))
-      stops.push(st(fx, cols[z1 > z0 ? k : k + 1] as string), st(fx, cols[z1 > z0 ? k + 1 : k] as string))
-    }
-    prev = p
-  }
-  if (prev) stops.push(st(x1, cols[zi(prev[1])] as string))
-  return `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${n1(x0)}" x2="${n1(x1)}" y1="0" y2="0">${stops.join('')}</linearGradient>`
-}
-
-// A mask that fades a fill from opacity a at yTop to b at yBot.
-function fadeMask(id: string, W: number, H: number, yTop: number, yBot: number, a: number, b: number): string {
-  return (
-    `<linearGradient id="${id}g" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="${n1(yTop)}" y2="${n1(yBot)}"><stop offset="0" stop-color="#fff" stop-opacity="${a}"/><stop offset="1" stop-color="#fff" stop-opacity="${b}"/></linearGradient>` +
-    `<mask id="${id}" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><rect x="0" y="0" width="${W}" height="${H}" fill="url(#${id}g)"/></mask>`
-  )
-}
-
-const BAND_DEF =`<linearGradient id="band" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${LCD}" stop-opacity="0.16"/><stop offset="1" stop-color="${LCD}" stop-opacity="0.035"/></linearGradient>`
-
-function niceStep(span: number, target: number): number {
-  const raw = span / target
-  const mag = 10 ** Math.floor(Math.log10(raw))
-  for (const m of [1, 2, 2.5, 5, 10]) if (m * mag >= raw) return m * mag
-  return 10 * mag
-}
-
-// The value of a curve at f, between its points; undefined off the curve.
-function at(curve: [number, number][], f: number): number | undefined {
-  const first = curve[0]
-  const last = curve[curve.length - 1]
-  if (!first || !last || f < first[0] || f > last[0]) return undefined
-  for (let i = 1; i < curve.length; i++) {
-    const a = curve[i - 1] as [number, number]
-    const b = curve[i] as [number, number]
-    if (b[0] >= f) return b[0] === a[0] ? b[1] : a[1] + ((f - a[0]) / (b[0] - a[0])) * (b[1] - a[1])
-  }
-  return last[1]
-}
-
 // ---------------------------------------------------------------- the line charts (SWR, return loss, R & X)
-
-type Frame = { W: number; H: number; L: number; R: number; T: number; B: number; lo: number; hi: number; c: boolean; x: (f: number) => number }
-type Badge = { text: string; color: string }
 
 function frame(series: Series[], g: Geo, H: number, ab = false): Frame {
   const c = g.c
@@ -812,60 +306,6 @@ function badgeOf(series: Series[], compare: boolean): Badge {
   if (series.some(s => s.isLive)) return liveOn ? { text: 'LIVE', color: LCD } : { text: 'PAUSED', color: AXIS }
   if (histLabel) return { text: 'HISTORY', color: SKY }
   return { text: 'SAVED', color: SKY }
-}
-
-// The series drawn in the zone colours: the live one, or the only one.
-function primaryOf(series: Series[], compare: boolean): Series | undefined {
-  if (compare) return undefined
-  return series.find(s => s.isLive) ?? (series.length === 1 ? series[0] : undefined)
-}
-
-function pathOf(fr: Frame, pts: [number, number][], y: (v: number) => number): string {
-  return pts
-    .filter(p => p[0] >= fr.lo && p[0] <= fr.hi)
-    .map((p, i) => `${i ? 'L' : 'M'}${n1(fr.x(p[0]))},${n1(y(p[1]))}`)
-    .join('')
-}
-
-// The trace closed onto a level (the floor of the SWR chart, the ceiling of return loss).
-function areaOf(fr: Frame, pts: [number, number][], y: (v: number) => number, level: number): string {
-  const p = pts.filter(q => q[0] >= fr.lo && q[0] <= fr.hi)
-  const a = p[0]
-  const b = p[p.length - 1]
-  if (!a || !b) return ''
-  return `${pathOf(fr, p, y)}L${n1(fr.x(b[0]))},${n1(level)}L${n1(fr.x(a[0]))},${n1(level)}Z`
-}
-
-// Card, title row, plot well and frequency axis. In A/B the two names stand in the title row.
-function base(fr: Frame, parts: string[], title: string, sub: string, badge: Badge, ab?: [Series, Series]): void {
-  const { W, H, L, R, T, B, lo, hi, x, c } = fr
-  parts.push(`<rect x="0" y="0" width="${W}" height="${H}" rx="12" fill="${BG}"/>`)
-  parts.push(`<rect x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="${PLOT}"/>`)
-  const bw = tw(badge.text, 10) + 26
-  parts.push(`<rect x="12" y="9" width="${n1(bw)}" height="18" rx="9" fill="${badge.color}" fill-opacity="0.14" stroke="${badge.color}" stroke-opacity="0.7"/>`)
-  parts.push(`<circle cx="22" cy="18" r="3.5" fill="${badge.color}"/>`)
-  parts.push(txt(30, 22, badge.text, { fill: badge.color, size: 10, weight: 700, spacing: 0.5 }))
-  const tx = 12 + bw + 10
-  parts.push(txt(tx, 23, title, { fill: BRIGHT, size: c ? 13 : 14, weight: 700, font: SANS }))
-  if (ab) {
-    // A and B, right-aligned in the title row (under it on the phone).
-    let ax = W - 14
-    const ay = c ? 42 : 22
-    for (const s of [ab[1], ab[0]]) {
-      const name = cut(s.label, c ? 20 : 26)
-      parts.push(txt(ax, ay, name, { anchor: 'end', size: 10, fill: s.color, weight: 700 }))
-      ax -= tw(name, 10) + 6
-      parts.push(`<path d="M${n1(ax - 14)},${ay - 3.5}h14" stroke="${s.color}" stroke-width="3" stroke-linecap="round"/>`)
-      ax -= 28
-    }
-  } else if (!c && sub) parts.push(txt(W - 14, 22, sub, { anchor: 'end', size: 10 }))
-  const step = niceStep(hi - lo, c ? 4 : 7)
-  for (let f = Math.ceil(lo / step - 1e-9) * step; f <= hi + 1e-9; f += step) {
-    const px = x(f)
-    const last = f + step > hi + 1e-9
-    parts.push(`<line x1="${n1(px)}" x2="${n1(px)}" y1="${T}" y2="${H - B}" stroke="${GRID2}"/>`)
-    parts.push(txt(px, H - B + 16, `${Number(f.toFixed(1))}${last && !c ? ' MHz' : ''}`, { anchor: last ? 'end' : px < L + 14 ? 'start' : 'middle', size: c ? 9.5 : 10 }))
-  }
 }
 
 // The band being measured as a teal stripe (the US 902–928 MHz band on the mesh sweep), labelled at
@@ -916,78 +356,6 @@ function liveTags(fr: Frame, parts: string[], placed: Rect[], y: (m: Mark) => nu
     parts.push(txt(mx, ty + 9.5, `M${mk.id}`, { fill: '#10161a', size: 8, anchor: 'middle', weight: 700 }))
   }
   placed.push(...tags)
-}
-
-function plotBounds(fr: Frame): Rect {
-  return [fr.L + 2, fr.T + 2, fr.W - fr.R - 2, fr.H - fr.B - 2]
-}
-
-// The lowest point (or the deepest dip): a glowing ring and its value, labelled where there is room.
-function dipMark(fr: Frame, parts: string[], placed: Rect[], f: number, py: number, col: string, label: string): void {
-  if (f < fr.lo || f > fr.hi) return
-  const px = fr.x(f)
-  parts.push(`<circle cx="${n1(px)}" cy="${n1(py)}" r="13" fill="${col}" fill-opacity="0.4" filter="url(#soft)"/>`)
-  parts.push(`<circle cx="${n1(px)}" cy="${n1(py)}" r="7" fill="none" stroke="${col}" stroke-width="1.7"/>`)
-  parts.push(`<circle cx="${n1(px)}" cy="${n1(py)}" r="2.8" fill="${BRIGHT}"/>`)
-  placed.push([px - 9, py - 9, px + 9, py + 9])
-  placePill(
-    parts,
-    placed,
-    [
-      [px + 10, py + 21, 'start'],
-      [px - 10, py + 21, 'end'],
-      [px, py + 24, 'middle'],
-      [px + 12, py - 12, 'start'],
-      [px - 12, py - 12, 'end'],
-      [px, py - 14, 'middle'],
-      [px + 12, py + 4, 'start'],
-      [px - 12, py + 4, 'end'],
-    ],
-    label,
-    col,
-    plotBounds(fr),
-  )
-}
-
-// The mesh frequencies on the primary trace: a dot on the trace, the value tagged on its line.
-function meshDots(fr: Frame, parts: string[], placed: Rect[], m: Metrics, val: (k: Mark) => number, y: (v: number) => number, col: (k: Mark) => string, show: (k: Mark) => string, py0 = fr.T + 34): void {
-  for (const [key, left] of [
-    ['meshtastic', true],
-    ['meshcore', false],
-  ] as [keyof Metrics, boolean][]) {
-    const mk = m[key] as Mark | undefined
-    if (!mk || mk.mhz < fr.lo || mk.mhz > fr.hi) continue
-    const px = fr.x(mk.mhz)
-    const py = y(val(mk))
-    parts.push(`<circle cx="${n1(px)}" cy="${n1(py)}" r="4.8" fill="${col(mk)}" stroke="${PLOT}" stroke-width="1.5" filter="url(#glow)"/>`)
-    placed.push([px - 6, py - 6, px + 6, py + 6])
-    const s = show(mk)
-    const tx = px + (left ? -6 : 6)
-    placed.push(pillRect(tx, py0, s, 10, left ? 'end' : 'start'))
-    parts.push(pill(tx, py0, s, { fill: col(mk), anchor: left ? 'end' : 'start' }))
-  }
-}
-
-// The stretch under SWR 2 as a bracket on the 2:1 line, its width labelled where there is room.
-function bracket(fr: Frame, parts: string[], placed: Rect[], u2: [number, number], yb: number): void {
-  const a = Math.max(u2[0], fr.lo)
-  const b = Math.min(u2[1], fr.hi)
-  if (!(b > a)) return
-  const xa = fr.x(a)
-  const xb = fr.x(b)
-  const openL = u2[0] <= fr.lo + 0.05
-  const openR = u2[1] >= fr.hi - 0.05
-  const end = (px: number, isOpen: boolean, dir: number) =>
-    isOpen ? `M${n1(px + dir * 7)},${n1(yb - 4)}L${n1(px)},${n1(yb)}L${n1(px + dir * 7)},${n1(yb + 4)}` : `M${n1(px)},${n1(yb + 8)}V${n1(yb)}`
-  parts.push(`<path d="M${n1(xa)},${n1(yb)}H${n1(xb)}${end(xa, openL, 1)}${end(xb, openR, -1)}" fill="none" stroke="${GREEN}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>`)
-  const wide = u2[1] - u2[0]
-  const s = `${fr.c ? 'under 2:1' : `under 2:1 from ${Number(u2[0].toFixed(1))} to ${Number(u2[1].toFixed(1))}`} · ${wide.toFixed(wide >= 20 ? 0 : 1)}${openL || openR ? '+' : ''} MHz`
-  const w = tw(s, 10) + 10
-  const cands: Spot[] = [(xa + xb) / 2, xa + w / 2 + 8, xb - w / 2 - 8, (xa + fr.x(906.875) - 60) / 2, (xb + fr.x(910.525) + 60) / 2].flatMap(cx => [
-    [cx, yb - 6, 'middle'] as Spot,
-    [cx, yb + 18, 'middle'] as Spot,
-  ])
-  placePill(parts, placed, cands, s, GREEN, [Math.max(xa, fr.L) - 1, fr.T + 2, Math.min(xb, fr.W - fr.R) + 1, fr.H - fr.B - 2])
 }
 
 // Between two traces, shaded in the colour of whichever is better there.
@@ -1053,29 +421,6 @@ function winners(fr: Frame, parts: string[], placed: Rect[], A: Series, B: Serie
   }
 }
 
-function legend(fr: Frame, parts: string[], series: Series[], prim: Series | undefined, extra: [string, string, string][] = []): void {
-  const rows: [string, string, string][] = [...extra, ...series.map(s => [s.label, s === prim ? 'zone' : s.color, ''] as [string, string, string])]
-  if (rows.length < 2) return
-  const x0 = fr.L + 8
-  const y0 = fr.T + 8
-  const w = Math.max(...rows.map(r => tw(r[0], 9.5))) + 34
-  parts.push(`<rect x="${x0 - 5}" y="${y0}" width="${n1(w)}" height="${rows.length * 14 + 6}" rx="5" fill="${PLOT}" fill-opacity="0.88" stroke="${GRID}"/>`)
-  rows.forEach(([label, col, dash], k) => {
-    const ly = y0 + 12 + k * 14
-    if (col === 'zone') {
-      parts.push(`<path d="M${x0},${ly}h5" stroke="${GREEN}" stroke-width="2.6"/><path d="M${x0 + 5},${ly}h5" stroke="${AMBER}" stroke-width="2.6"/><path d="M${x0 + 10},${ly}h5" stroke="${RED}" stroke-width="2.6"/>`)
-    } else parts.push(`<path d="M${x0},${ly}h15" stroke="${col}" stroke-width="2.4"${dash ? ` stroke-dasharray="${dash}"` : ''}/>`)
-    parts.push(txt(x0 + 21, ly + 3.5, label, { fill: LABEL, size: 9.5 }))
-  })
-}
-
-// The primary trace's fill: each column in the zone colour of the trace above (or below) it.
-function zoneFill(fr: Frame, parts: string[], area: string, swrPts: [number, number][]): void {
-  const pts = swrPts.filter(p => p[0] >= fr.lo && p[0] <= fr.hi)
-  parts.push(`<defs>${zoneCols('zc', fr.L, fr.W - fr.R, pts, fr.x)}</defs>`)
-  parts.push(`<path d="${area}" fill="url(#zc)" mask="url(#fade)"/>`)
-}
-
 function swrChart(series: Series[], g: Geo, compare = false): string {
   const c = g.c
   const H = c ? 272 : 318
@@ -1133,19 +478,6 @@ function swrChart(series: Series[], g: Geo, compare = false): string {
     dipMark(fr, parts, placed, best.mhz, y(best.swr), zone(best.swr), c ? `low ${fmt(best.swr)} · ${best.mhz.toFixed(1)}` : `lowest ${fmt(best.swr)} · ${best.mhz.toFixed(1)} MHz`)
   }
   return svgDoc(W, H, parts.join(''))
-}
-
-function rlPoints(s: Series): [number, number][] {
-  const g = s.s11?.length === s.curve.length ? s.s11 : undefined
-  return s.curve.map((p, i) => {
-    const gi = g?.[i]
-    return [p[0], gi ? rlOf(gi) : -20 * Math.log10(Math.max((p[1] - 1) / (p[1] + 1), 1e-9))]
-  })
-}
-
-function swrOfRl(rl: number): number {
-  const g = 10 ** (-rl / 20)
-  return g >= 0.999 ? 99 : (1 + g) / (1 - g)
 }
 
 function rlChart(series: Series[], g: Geo, compare = false): string {
@@ -1355,26 +687,6 @@ function rxChart(series: Series[], g: Geo, compare = false): string {
 }
 
 // ---------------------------------------------------------------- the Smith chart
-
-// Frequency along the trace: blue at the bottom of the sweep, magenta, red at the top.
-const FREQ_STOPS: [number, [number, number, number]][] = [
-  [0, [64, 140, 255]],
-  [0.35, [139, 107, 255]],
-  [0.68, [230, 85, 224]],
-  [1, [255, 77, 77]],
-]
-function fcol(t: number): string {
-  t = clamp(t)
-  for (let i = 1; i < FREQ_STOPS.length; i++) {
-    const [t1, c1] = FREQ_STOPS[i] as [number, [number, number, number]]
-    const [t0, c0] = FREQ_STOPS[i - 1] as [number, [number, number, number]]
-    if (t <= t1) {
-      const u = (t - t0) / (t1 - t0)
-      return `#${c0.map((v, k) => Math.round(v + ((c1[k] ?? v) - v) * u).toString(16).padStart(2, '0')).join('')}`
-    }
-  }
-  return '#ff4d4d'
-}
 
 function smithChart(series: Series[], g: Geo, compare = false): string {
   const c = g.c
@@ -1645,130 +957,6 @@ function chart(v: View, series: Series[], g: Geo, compare = false): string {
 
 // ---------------------------------------------------------------- the hero: an LCD and an SWR meter
 
-const SEG: Record<string, string> = { '0': 'abcdef', '1': 'bc', '2': 'abdeg', '3': 'abcdg', '4': 'bcfg', '5': 'acdfg', '6': 'acdefg', '7': 'abc', '8': 'abcdefg', '9': 'abcdfg', '-': 'g', ' ': '' }
-
-function segPolys(x: number, y: number, w: number, h: number, t: number): Record<string, string> {
-  const g = t * 0.2
-  const P = (pts: number[][]) => pts.map(([a, b]) => `${n1(a ?? 0)},${n1(b ?? 0)}`).join(' ')
-  const hs = (yy: number, x0: number, x1: number) =>
-    P([
-      [x0 + t / 2 + g, yy],
-      [x0 + t + g, yy - t / 2],
-      [x1 - t - g, yy - t / 2],
-      [x1 - t / 2 - g, yy],
-      [x1 - t - g, yy + t / 2],
-      [x0 + t + g, yy + t / 2],
-    ])
-  const vs = (xx: number, y0: number, y1: number) =>
-    P([
-      [xx, y0 + t / 2 + g],
-      [xx + t / 2, y0 + t + g],
-      [xx + t / 2, y1 - t - g],
-      [xx, y1 - t / 2 - g],
-      [xx - t / 2, y1 - t - g],
-      [xx - t / 2, y0 + t + g],
-    ])
-  return {
-    a: hs(y + t / 2, x, x + w),
-    g: hs(y + h / 2, x, x + w),
-    d: hs(y + h - t / 2, x, x + w),
-    f: vs(x + t / 2, y, y + h / 2),
-    b: vs(x + w - t / 2, y, y + h / 2),
-    e: vs(x + t / 2, y + h / 2, y + h),
-    c: vs(x + w - t / 2, y + h / 2, y + h),
-  }
-}
-
-// A number on 7-segment digits: every segment a faint ghost, as a real LCD shows, the lit ones glowing.
-// Returns where the digits end.
-function lcdNumber(parts: string[], text: string, x: number, y: number, w: number, h: number, gap: number, col: string): number {
-  const lit: string[] = []
-  const ghost: string[] = []
-  let dx = x
-  for (const ch of text) {
-    if (ch === '.') {
-      const ds = Math.max(4.5, w * 0.17)
-      lit.push(`<rect x="${n1(dx - gap * 0.3)}" y="${n1(y + h - ds)}" width="${n1(ds)}" height="${n1(ds)}" rx="1.2"/>`)
-      dx += ds + gap * 0.3
-      continue
-    }
-    const t = Math.max(3, w * 0.19)
-    const segs = segPolys(dx, y, w, h, t)
-    const on = SEG[ch] ?? ''
-    for (const [k, pts] of Object.entries(segs)) {
-      ghost.push(`<polygon points="${pts}"/>`)
-      if (on.includes(k)) lit.push(`<polygon points="${pts}"/>`)
-    }
-    dx += w + gap
-  }
-  const skew = `transform="translate(${n1((y + h / 2) * 0.105)},0) skewX(-6)"`
-  parts.push(`<g ${skew} fill="${LCD}" fill-opacity="0.07">${ghost.join('')}</g>`)
-  parts.push(`<g ${skew} fill="${col}" filter="url(#seg)">${lit.join('')}</g>`)
-  return dx
-}
-
-// "1.36" with a ghost tens digit, as an LCD pads it.
-function lcdText(swr: number | undefined): string {
-  if (swr === undefined) return ' -.--'
-  return swr >= 9.995 ? ' 9.99' : ` ${swr.toFixed(2)}`
-}
-
-// The meter's scale runs in |Γ| to SWR 4, as a real SWR meter's does.
-const G_FULL = 0.6
-function needleAngle(swr: number): number {
-  return Math.PI * (1 - Math.min(gam(swr), G_FULL) / G_FULL)
-}
-
-function polar(cx: number, cy: number, r: number, a: number): [number, number] {
-  return [cx + r * Math.cos(a), cy - r * Math.sin(a)]
-}
-
-function arc(cx: number, cy: number, r: number, a0: number, a1: number): string {
-  const [x0, y0] = polar(cx, cy, r, a0)
-  const [x1, y1] = polar(cx, cy, r, a1)
-  return `M${n1(x0)},${n1(y0)}A${r},${r} 0 ${Math.abs(a0 - a1) > Math.PI ? 1 : 0} 1 ${n1(x1)},${n1(y1)}`
-}
-
-function meter(parts: string[], cx: number, cy: number, r: number, mt: Mark, mc: Mark | undefined): void {
-  parts.push(`<path d="${arc(cx, cy, r, Math.PI, 0)}" fill="none" stroke="#132026" stroke-width="20" stroke-linecap="round"/>`)
-  for (const [s0, s1, col] of [
-    [1, 1.5, GREEN],
-    [1.5, 2, AMBER],
-    [2, 4, RED],
-  ] as [number, number, string][]) {
-    parts.push(`<path d="${arc(cx, cy, r, needleAngle(s0), needleAngle(s1))}" fill="none" stroke="${col}" stroke-width="9" stroke-opacity="0.9" filter="url(#glow)"/>`)
-  }
-  const ticks: string[] = []
-  for (const s of [1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2, 2.25, 2.5, 2.75, 3, 3.5, 4]) {
-    const major = [1, 1.2, 1.5, 2, 2.5, 3, 4].includes(s)
-    const a = needleAngle(s)
-    const [x1, y1] = polar(cx, cy, r - 8, a)
-    const [x2, y2] = polar(cx, cy, r - (major ? 19 : 14), a)
-    ticks.push(`M${n1(x1)},${n1(y1)}L${n1(x2)},${n1(y2)}`)
-    if (major) {
-      const [lx, ly] = polar(cx, cy, r + 17, a)
-      parts.push(txt(lx, ly + 4, String(s), { anchor: 'middle', size: 10, fill: s === 1.5 ? GREEN : s === 2 ? AMBER : AXIS, weight: s === 1.5 || s === 2 ? 700 : undefined }))
-    }
-  }
-  parts.push(`<path d="${ticks.join('')}" stroke="${LABEL}" stroke-opacity="0.55" stroke-width="1.2"/>`)
-  parts.push(txt(cx, cy - r * 0.42, 'SWR', { anchor: 'middle', size: 10, spacing: 2, fill: AXIS, weight: 700 }))
-  // MeshCore: a thin teal needle; Meshtastic: the bright one.
-  const needle = (swr: number, len: number, wid: number, col: string, op: number) => {
-    const a = needleAngle(swr)
-    const [tx, ty] = polar(cx, cy, len, a)
-    const [l1, l2] = polar(cx, cy, wid, a + Math.PI / 2)
-    const [r1, r2] = polar(cx, cy, wid, a - Math.PI / 2)
-    const [bx, by] = polar(cx, cy, 14, a + Math.PI)
-    parts.push(`<path d="M${n1(tx)},${n1(ty)}L${n1(l1)},${n1(l2)}L${n1(bx)},${n1(by)}L${n1(r1)},${n1(r2)}Z" fill="${col}" fill-opacity="${op}" filter="url(#glow)"/>`)
-  }
-  if (mc) needle(mc.swr, r - 26, 2.2, LCD, 0.75)
-  needle(mt.swr, r - 6, 3.2, BRIGHT, 1)
-  parts.push(`<circle cx="${cx}" cy="${cy}" r="8" fill="#1b2a30" stroke="${LCD}" stroke-opacity="0.6"/><circle cx="${cx}" cy="${cy}" r="2.6" fill="${BRIGHT}"/>`)
-  const lg = mc ? [`▬ ${mt.name ?? 'Meshtastic'}`, `▬ ${mc.name ?? 'MeshCore'}`] : [`▬ ${mt.name ?? 'Meshtastic'}`]
-  parts.push(txt(cx - (mc ? 6 : 0), cy + 22, lg[0] ?? '', { anchor: mc ? 'end' : 'middle', size: 9.5, fill: BRIGHT }))
-  if (mc) parts.push(txt(cx + 6, cy + 22, lg[1] ?? '', { anchor: 'start', size: 9.5, fill: LCD }))
-}
-
 function annunciators(parts: string[], x: number, y: number, maxX: number, c: boolean): void {
   const cs = calStatus()
   const bd = activeBand()
@@ -1788,12 +976,6 @@ function annunciators(parts: string[], x: number, y: number, maxX: number, c: bo
     ax += w + 6
   }
   void c
-}
-
-// The words for a band's grade: "Great match for 2 m ham".
-function bandVerdict(swr: number, who: string): string {
-  const g = grade(swr)
-  return g === 'A' ? `Great match for ${who}` : g === 'B' ? `Good match for ${who}` : g === 'C' ? `So-so match for ${who}: worth a trim or a better antenna` : `Poor match for ${who}: check the plug, then the antenna`
 }
 
 function heroSvg(m: Metrics, g: Geo): string {
@@ -1861,124 +1043,6 @@ function heroSvg(m: Metrics, g: Geo): string {
 
 // ---------------------------------------------------------------- the trimming drawing
 
-type Trim = { kind: 'cut' | 'add' | 'on' | 'anti' | 'short' | 'long'; head: string; sub: string; col: string; f: number | null; target: number | null; off: number | null }
-
-function trimOf(res: Resonance, lo: number, hi: number): Trim {
-  if (!res.mhz) {
-    const short = res.xSign === 'negative'
-    const cl = res.closest
-    return {
-      kind: short ? 'short' : 'long',
-      head: short ? `Reads short: no resonance up to ${hi} MHz` : `Reads long: no resonance down to ${lo} MHz`,
-      sub: `X stays ${short ? 'capacitive' : 'inductive'}${cl ? ` (closest to 0: ${cl.x >= 0 ? '+' : '−'}${Math.abs(cl.x).toFixed(1)} Ω at ${cl.mhz.toFixed(1)} MHz)` : ''}. A plain whip reading this way is ${short ? 'too short' : 'too long'}; a matched antenna often does and is fine.`,
-      col: AMBER,
-      f: null,
-      target: null,
-      off: null,
-    }
-  }
-  if (res.kind && res.kind !== 'series') {
-    return { kind: 'anti', head: `Anti-resonance at ${res.mhz.toFixed(1)} MHz`, sub: 'R peaks there: not the series resonance a whip has, so there is no trimming hint.', col: AXIS, f: res.mhz, target: null, off: null }
-  }
-  if (res.trim === 'on' || (res.mhz >= 905.875 && res.mhz <= 911.525)) {
-    return { kind: 'on', head: `On frequency: resonant at ${res.mhz.toFixed(1)} MHz`, sub: 'Right on the mesh channels (906.875 and 910.525). Leave the length alone.', col: GREEN, f: res.mhz, target: null, off: 0 }
-  }
-  const below = res.mhz < 906.875
-  const target = below ? 906.875 : 910.525
-  const pct = Math.abs(1 - res.mhz / target) * 100
-  const qw = quarterWave(target)
-  const mm = (pct / 100) * qw
-  const size = pct < 3 ? 'Slightly' : 'Noticeably'
-  return below
-    ? {
-        kind: 'cut',
-        head: `${size} long: cut ~${mm.toFixed(1)} mm`,
-        sub: `Resonant at ${res.mhz.toFixed(1)} MHz, ${(target - res.mhz).toFixed(1)} MHz below ${target}: about ${pct.toFixed(1)}% shorter (≈${mm.toFixed(1)} mm on a ${qw.toFixed(0)} mm quarter-wave whip) moves it up to ${target}.`,
-        col: AMBER,
-        f: res.mhz,
-        target,
-        off: res.mhz - target,
-      }
-    : {
-        kind: 'add',
-        head: `${size} short by ~${mm.toFixed(1)} mm`,
-        sub: `Resonant at ${res.mhz.toFixed(1)} MHz, ${(res.mhz - target).toFixed(1)} MHz above ${target}: about ${pct.toFixed(1)}% longer (≈${mm.toFixed(1)} mm on a ${qw.toFixed(0)} mm quarter-wave whip) moves it down to ${target}.`,
-        col: AMBER,
-        f: res.mhz,
-        target,
-        off: res.mhz - target,
-      }
-}
-
-// A whip on its SMA plug, drawn bigger than life, with what to do to it.
-function whip(parts: string[], x: number, base: number, t: Trim, k: number): void {
-  const ideal = base - 92 * k
-  const tip = t.kind === 'cut' || t.kind === 'long' ? ideal - 20 * k : t.kind === 'add' || t.kind === 'short' ? ideal + 22 * k : ideal
-  // Waves off the tip.
-  for (const r of [9, 15, 21]) {
-    const op = (0.55 - r / 50).toFixed(2)
-    parts.push(`<path d="${arc(x, tip + 3, r * k, Math.PI * 0.28, -Math.PI * 0.28)}${arc(x, tip + 3, r * k, Math.PI * 1.28, Math.PI * 0.72)}" fill="none" stroke="${LCD}" stroke-opacity="${op}" stroke-width="1.3" stroke-linecap="round"/>`)
-  }
-  // Plug, boot and whip.
-  parts.push(`<rect x="${n1(x - 15 * k)}" y="${n1(base - 14 * k)}" width="${n1(30 * k)}" height="${n1(14 * k)}" rx="2" fill="url(#nut)" stroke="#6f8790" stroke-width="0.8"/>`)
-  parts.push(`<path d="M${n1(x - 9 * k)},${n1(base - 14 * k)}V${n1(base - 36 * k)}Q${n1(x - 9 * k)},${n1(base - 44 * k)} ${n1(x - 3 * k)},${n1(base - 46 * k)}H${n1(x + 3 * k)}Q${n1(x + 9 * k)},${n1(base - 44 * k)} ${n1(x + 9 * k)},${n1(base - 36 * k)}V${n1(base - 14 * k)}Z" fill="#26343a" stroke="#3c4f56"/>`)
-  parts.push(`<rect x="${n1(x - 3 * k)}" y="${n1(tip)}" width="${n1(6 * k)}" height="${n1(base - 46 * k - tip)}" rx="${n1(3 * k)}" fill="url(#rod)"/>`)
-  if (t.kind === 'cut' || t.kind === 'long') {
-    parts.push(`<rect x="${n1(x - 3.6 * k)}" y="${n1(tip - 1)}" width="${n1(7.2 * k)}" height="${n1(ideal - tip + 1)}" rx="${n1(3 * k)}" fill="${t.col}" fill-opacity="0.85" filter="url(#glow)"/>`)
-    parts.push(`<line x1="${n1(x - 20 * k)}" x2="${n1(x + 20 * k)}" y1="${n1(ideal)}" y2="${n1(ideal)}" stroke="${t.col}" stroke-width="1.6" stroke-dasharray="4 3"/>`)
-    parts.push(txt(x + 23 * k, ideal + 5, t.kind === 'cut' ? '✂' : '?', { size: 15 * k, fill: t.col, font: SANS, weight: 700 }))
-    parts.push(`<path d="M${n1(x - 26 * k)},${n1(tip + 2)}V${n1(ideal - 6)}m-4,-6l4,6l4,-6" fill="none" stroke="${t.col}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`)
-  } else if (t.kind === 'add' || t.kind === 'short') {
-    parts.push(`<rect x="${n1(x - 3 * k)}" y="${n1(ideal)}" width="${n1(6 * k)}" height="${n1(tip - ideal)}" rx="${n1(3 * k)}" fill="none" stroke="${t.col}" stroke-width="1.4" stroke-dasharray="3 2.5"/>`)
-    parts.push(`<path d="M${n1(x - 24 * k)},${n1(tip + 4)}V${n1(ideal + 4)}m-4,6l4,-6l4,6" fill="none" stroke="${t.col}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`)
-    parts.push(txt(x + 10 * k, ideal + 8, t.kind === 'add' ? '+' : '?', { size: 15 * k, fill: t.col, font: SANS, weight: 700 }))
-  } else if (t.kind === 'on') {
-    parts.push(`<circle cx="${x}" cy="${n1(tip - 12 * k)}" r="${n1(8 * k)}" fill="${GREEN}" fill-opacity="0.18" stroke="${GREEN}" filter="url(#glow)"/>`)
-    parts.push(`<path d="M${n1(x - 4 * k)},${n1(tip - 12 * k)}l${n1(3 * k)},${n1(3 * k)}l${n1(5 * k)},${n1(-6 * k)}" fill="none" stroke="${GREEN}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`)
-  }
-}
-
-// Where the resonance sits against the mesh channels, on a ruler.
-function ruler(parts: string[], x0: number, x1: number, y: number, t: Trim, lo: number, hi: number, c: boolean): void {
-  const f = t.f
-  let a = Math.min(906.875, f ?? 906.875) - 7
-  let b = Math.max(910.525, f ?? 910.525) + 7
-  if (!f && t.kind === 'short') b = Math.max(b, 930)
-  if (!f && t.kind === 'long') a = Math.min(a, 888)
-  if (b - a < 34) {
-    const m = (a + b) / 2
-    a = m - 17
-    b = m + 17
-  }
-  const x = (v: number) => x0 + ((v - a) / (b - a)) * (x1 - x0)
-  parts.push(`<line x1="${x0}" x2="${x1}" y1="${y}" y2="${y}" stroke="#2c3d44" stroke-width="2" stroke-linecap="round"/>`)
-  const step = niceStep(b - a, c ? 4 : 7)
-  for (let v = Math.ceil(a / step) * step; v <= b; v += step) {
-    parts.push(`<line x1="${n1(x(v))}" x2="${n1(x(v))}" y1="${y - 3}" y2="${y + 3}" stroke="#3c5058"/>`)
-    parts.push(txt(x(v), y + 15, `${Number(v.toFixed(1))}`, { anchor: 'middle', size: 9 }))
-  }
-  parts.push(`<rect x="${n1(x(906.875))}" y="${y - 5}" width="${n1(x(910.525) - x(906.875))}" height="10" rx="2" fill="${GREEN}" fill-opacity="0.3" stroke="${GREEN}" stroke-opacity="0.8"/>`)
-  parts.push(txt((x(906.875) + x(910.525)) / 2, y - 9, 'mesh', { anchor: 'middle', size: 9, fill: GREEN, weight: 700 }))
-  const col = t.kind === 'on' ? GREEN : t.kind === 'anti' ? AXIS : YELLOW
-  if (f) {
-    const fx = x(f)
-    parts.push(`<path d="M${n1(fx)},${y - 7}l6,7l-6,7l-6,-7z" fill="${col}" filter="url(#glow)"/>`)
-    if (t.kind !== 'on') parts.push(txt(fx, y - 12, `${f.toFixed(1)}`, { anchor: 'middle', size: 10, fill: col, weight: 700 }))
-    if (t.target && t.off) {
-      const tx = x(t.target)
-      const dir = tx > fx ? 1 : -1
-      const ay = y - 26
-      parts.push(`<path d="M${n1(fx)},${ay}H${n1(tx - dir * 2)}m${-dir * 6},-4l${dir * 6},4l${-dir * 6},4" fill="none" stroke="${t.col}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`)
-      parts.push(txt((fx + tx) / 2, ay - 5, `${Math.abs(t.off).toFixed(1)} MHz`, { anchor: 'middle', size: 9.5, fill: t.col, weight: 700 }))
-    }
-  } else {
-    const edge = t.kind === 'short' ? x1 : x0
-    const dir = t.kind === 'short' ? 1 : -1
-    parts.push(`<path d="M${n1(edge - dir * 40)},${y - 22}H${n1(edge)}m${-dir * 6},-4l${dir * 6},4l${-dir * 6},4" fill="none" stroke="${col}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`)
-    parts.push(txt(edge - dir * 4, y - 30, t.kind === 'short' ? `above ${hi}?` : `below ${lo}?`, { anchor: t.kind === 'short' ? 'end' : 'start', size: 9.5, fill: col, weight: 700 }))
-  }
-}
-
 function trimSvg(res: Resonance, g: Geo): string {
   const c = g.c
   const W = g.W
@@ -2019,20 +1083,6 @@ function trimAlt(res: Resonance): string {
 }
 
 // ---------------------------------------------------------------- antenna cards
-
-// Where an antenna resonates against 915 MHz, and what that means for the mesh channels.
-function resWords(m: Metrics | null): { text: string; color: string } {
-  const r = m?.resonance
-  if (!r) return { text: 'no reactance in this sweep', color: AXIS }
-  if (!r.mhz) return { text: `no resonance in the sweep · reads ${r.xSign === 'negative' ? 'short' : 'long'}`, color: AMBER }
-  if (r.kind && r.kind !== 'series') return { text: `anti-resonance at ${r.mhz.toFixed(1)} MHz`, color: AXIS }
-  const d = r.mhz - 915
-  const where = Math.abs(d) < 0.5 ? 'resonant on 915' : `resonant ${Math.abs(d).toFixed(Math.abs(d) < 10 ? 1 : 0)} MHz ${d < 0 ? 'low' : 'high'}`
-  if (r.mhz >= 905.875 && r.mhz <= 911.525) return { text: `${where} · on the mesh channels`, color: GREEN }
-  const target = r.mhz < 906.875 ? 906.875 : 910.525
-  const mm = Math.abs(1 - r.mhz / target) * quarterWave(target)
-  return { text: `${where} · ${r.mhz < target ? `trim ~${mm.toFixed(1)} mm` : `~${mm.toFixed(1)} mm short`}`, color: AMBER }
-}
 
 // The band a saved sweep was taken on (by its range), for the card's subtitle.
 function itemBand(i: Item): BandDef | null {
@@ -2116,11 +1166,6 @@ function cardSvg(gr: Group, g: Geo, on?: 'chart' | 'history'): string {
   return svgDoc(W, H, parts.join(''))
 }
 
-function cardAlt(gr: Group): string {
-  const m = gr.latest.metrics
-  return `${gr.label}: grade ${gradeOf(m) ?? '—'}, SWR ${fmt(m?.meshtastic?.swr)} at 906.875 and ${fmt(m?.meshcore?.swr)} at 910.525, best ${fmt(m?.best.swr)} at ${m?.best.mhz ?? '?'} MHz, ${resWords(m).text}${gr.items.length > 1 ? `, ${gr.items.length} versions (${trend(gr)})` : ''}`
-}
-
 // ---------------------------------------------------------------- QC: a stamp and a meter per check
 
 function qcSvg(q: Qc, g: Geo): string {
@@ -2202,11 +1247,6 @@ function qcSvg(q: Qc, g: Geo): string {
   return svgDoc(W, H, parts.join(''))
 }
 
-function qcAlt(q: Qc): string {
-  return `QC ${q.pass ? 'PASS' : 'FAIL'}: ${q.checks.map(k => `${k.label} ${k.pass ? '✓' : '✗'} (${k.detail})`).join('; ')}`
-}
-
-
 // ---------------------------------------------------------------- QC, worked out in the tab
 // The same rule vna.py's qc_eval applies, from the live curve: every session gets its verdict
 // from the one shared reading, whatever its own rules.
@@ -2268,47 +1308,6 @@ function trimTols(f: number): { on: number; steady: number; move: number } {
   return { on: Math.max(0.0025 * f, st), steady: Math.max(0.0015 * f, 1.5 * st), move: Math.max(0.004 * f, 3 * st) }
 }
 
-// Where the antenna resonates: where X crosses zero going up (a series resonance, the one a whip
-// has; the nearest the target when there are several), else the middle of the SWR dip's floor.
-function resonanceOf(curve: [number, number][], s11: [number, number][] | undefined, target: number): TrimRead | null {
-  const n = curve.length
-  if (n < 3) return null
-  let k = 0
-  for (let i = 1; i < n; i++) if ((curve[i] as [number, number])[1] < (curve[k] as [number, number])[1]) k = i
-  const swrMin = (curve[k] as [number, number])[1]
-  if (swrMin > 15) return null
-  const swrT = at(curve, target)
-  if (s11 && s11.length === n) {
-    const z = s11.map(g => zOfGamma(g))
-    let best: { f: number; r: number } | null = null
-    for (let i = 1; i < n; i++) {
-      const [r0, x0] = z[i - 1] as [number, number]
-      const [r1, x1] = z[i] as [number, number]
-      if (!(x0 < 0 && x1 >= 0) || Math.max(Math.abs(x0), Math.abs(x1)) > 2000) continue
-      const t = x0 / (x0 - x1)
-      const f0 = (curve[i - 1] as [number, number])[0]
-      const f1 = (curve[i] as [number, number])[0]
-      const f = f0 + t * (f1 - f0)
-      if (!best || Math.abs(f - target) < Math.abs(best.f - target)) best = { f, r: r0 + t * (r1 - r0) }
-    }
-    if (best) return { f: best.f, method: 'X = 0', swrT, swrMin, r: best.r }
-  }
-  // The dip's floor: the run around the lowest point within a little of it, and its middle.
-  const floor = swrMin + Math.max(0.03, 0.1 * (swrMin - 1))
-  let a = k
-  let b = k
-  while (a > 0 && (curve[a - 1] as [number, number])[1] <= floor) a--
-  while (b < n - 1 && (curve[b + 1] as [number, number])[1] <= floor) b++
-  const f = ((curve[a] as [number, number])[0] + (curve[b] as [number, number])[0]) / 2
-  const edge = a === 0 && b < n - 1 ? 'below' : b === n - 1 && a > 0 ? 'above' : undefined
-  return { f, method: 'SWR dip', swrT, swrMin, ...(edge ? { edge } : {}) }
-}
-
-// Crossed the target: from beyond it on one side to beyond it on the other.
-function crossed(d0: number, d1: number, on: number): boolean {
-  return (d0 < -on && d1 > on) || (d0 > on && d1 < -on)
-}
-
 function trimPush(r: TrimRead, how: TrimPoint['how'], now: number): TrimPoint {
   const t = trimTarget()
   const delta = r.f - t.f
@@ -2343,17 +1342,6 @@ function trimFeed(now: number): TrimPoint | null {
   if (Math.abs(r.f - last.f) >= tol.move) return trimPush(r, 'auto', now)
   return null
 }
-
-function fmtOff(d: number): string {
-  const a = Math.abs(d)
-  return a >= 10 ? `${a.toFixed(0)} MHz` : a >= 1 ? `${a.toFixed(1)} MHz` : `${Math.round(a * 1000)} kHz`
-}
-
-function fmtF(f: number): string {
-  return f >= 1000 ? f.toFixed(1) : f >= 200 ? f.toFixed(1) : f.toFixed(2)
-}
-
-type TrimWords = { head: string; sub: string; undo: string; col: string; arrow: 'up' | 'down' | 'on' | 'none'; passed: boolean }
 
 // What to do, in plain words: "12 MHz low · cut a little", "closer…", "on frequency ✓", "you passed it".
 // The reading Trim shows: the last one fed, else worked out now (a Trim tab drawn before a tick).
@@ -2438,32 +1426,6 @@ function trimRuler(parts: string[], x0: number, x1: number, y: number, c: boolea
       parts.push(`<path d="M${n1(fx)},${ay}H${n1(tx - dir * 2)}m${-dir * 6},-4l${dir * 6},4l${-dir * 6},4" fill="none" stroke="${col}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`)
     }
   }
-}
-
-// An arrow saying which way the resonance has to go, and what that means for the antenna.
-function trimArrow(parts: string[], cx: number, cy: number, w: TrimWords, k: number): void {
-  if (w.arrow === 'on') {
-    parts.push(`<circle cx="${cx}" cy="${cy}" r="${34 * k}" fill="${GREEN}" fill-opacity="0.14" stroke="${GREEN}" stroke-width="2.4" filter="url(#glow)"/>`)
-    parts.push(`<path d="M${n1(cx - 15 * k)},${cy}l${n1(10 * k)},${n1(11 * k)}l${n1(21 * k)},${n1(-24 * k)}" fill="none" stroke="${GREEN}" stroke-width="${n1(5 * k)}" stroke-linecap="round" stroke-linejoin="round"/>`)
-    parts.push(txt(cx, cy + 52 * k, 'ON FREQUENCY', { anchor: 'middle', size: 10, weight: 700, fill: GREEN, spacing: 1.5 }))
-    return
-  }
-  if (w.arrow === 'none') return
-  const up = w.arrow === 'up'
-  const s = up ? -1 : 1
-  const pts = [
-    [0, s * 36],
-    [24, s * 6],
-    [10, s * 6],
-    [10, s * -30],
-    [-10, s * -30],
-    [-10, s * 6],
-    [-24, s * 6],
-  ]
-    .map(([px, py]) => `${n1(cx + (px ?? 0) * k)},${n1(cy - (py ?? 0) * k)}`)
-    .join(' ')
-  parts.push(`<polygon points="${pts}" fill="${w.col}" fill-opacity="0.85" filter="url(#glow)"/>`)
-  parts.push(txt(cx, cy + 54 * k, up ? 'RAISE IT · CUT' : 'LOWER IT · LENGTHEN', { anchor: 'middle', size: 10, weight: 700, fill: w.col, spacing: 1.2 }))
 }
 
 // The big live readout: the resonance on LCD digits against the target, the arrow and the verdict.
@@ -2598,11 +1560,6 @@ function trimTimelineAlt(): string {
 
 // ---------------------------------------------------------------- band presets
 
-const BAND_COLORS: Record<string, string> = { mesh: LCD, '2m': SKY, '70cm': VIOLET, adsb: PINK, ism433: TEAL, fm: CYAN }
-function bandColor(b: BandDef): string {
-  return BAND_COLORS[b.id] ?? (ANT[hashLabel(b.id) % ANT.length] as string)
-}
-
 function bandTip(b: BandDef): string {
   const cal = b.id === 'mesh' ? 'slot 0, the power-on state' : b.calOk ? `slot ${b.slot}, calibrated ${b.cal?.at ? day(b.cal.at) : ''}` : b.slot ? `slot ${b.slot}, not calibrated yet` : b.slotWhy ?? 'no slot'
   return `${b.name} · sweep ${b.start / 1e6}–${b.stop / 1e6} MHz, band ${b.band[0]}–${b.band[1]} · ${cal}${b.for ? ` · for ${b.for}` : ''}`
@@ -2704,149 +1661,9 @@ function bandsAlt(): string {
     .join(', ')}${activeBand() ? `; sweeping ${activeBand()?.name} now` : ''}`
 }
 
-// The V4 dipole helper: the RTL-SDR Blog V4 kit's dipole, each element ≈ 7150 / MHz cm.
-const DIPOLE_TARGETS: [number, string, string][] = [
-  [98, 'FM broadcast', 'fm'],
-  [146.52, '2 m', '2m'],
-  [433.92, '433 ISM', 'ism433'],
-  [446, '70 cm', '70cm'],
-  [915, 'LoRa 915', 'mesh'],
-  [1090, 'ADS-B', 'adsb'],
-]
-
-function dipoleCm(f: number): number {
-  return 7150 / f
-}
-
-function dipoleSvg(f: number, g: Geo): string {
-  const c = g.c
-  const W = g.W
-  const cm = dipoleCm(f)
-  const name = DIPOLE_TARGETS.find(t => t[0] === f)?.[1] ?? `${f} MHz`
-  const lines = wrapText(`Each element ≈ 7150 / ${f} = ${cm.toFixed(1)} cm from the base to the tip, both the same, ${(2 * cm).toFixed(1)} cm tip to tip. Stand it vertical for most signals (ADS-B, LoRa, ham), horizontal for FM. Then Sweep it: the dip should land near ${f} MHz.`, c ? 54 : 100)
-  const ty0 = c ? 140 : 132
-  const H = ty0 + lines.length * 14 + 6
-  const parts: string[] = []
-  parts.push(`<defs>${glowDef('glow', W, H, 1.6)}<linearGradient id="rod" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#e6edf0"/><stop offset="1" stop-color="#7f9199"/></linearGradient></defs>`)
-  parts.push(`<rect x="0" y="0" width="${W}" height="${H}" rx="12" fill="${BG}"/>`)
-  parts.push(txt(14, 23, `V4 DIPOLE · ${name.toUpperCase()} · ${f} MHz`, { size: 10.5, fill: PINK, weight: 700, spacing: 1.2 }))
-  const cx = W / 2
-  const y = c ? 72 : 66
-  const half = Math.min(W / 2 - 40, 60 + cm * (c ? 1.6 : 2.4))
-  parts.push(`<rect x="${n1(cx - half)}" y="${y - 3}" width="${n1(half - 12)}" height="6" rx="3" fill="url(#rod)"/>`)
-  parts.push(`<rect x="${n1(cx + 12)}" y="${y - 3}" width="${n1(half - 12)}" height="6" rx="3" fill="url(#rod)"/>`)
-  parts.push(`<rect x="${cx - 12}" y="${y - 10}" width="24" height="20" rx="4" fill="#26343a" stroke="#3c4f56"/>`)
-  parts.push(`<path d="M${cx},${y + 10}V${y + 34}" stroke="#56666d" stroke-width="3"/>`)
-  parts.push(txt(cx, y + 46, 'coax to PORT 1', { anchor: 'middle', size: 9.5 }))
-  for (const s of [-1, 1]) {
-    const a = cx + s * 12
-    const b = cx + s * half
-    parts.push(`<path d="M${n1(a)},${y - 18}H${n1(b)}M${n1(a)},${y - 22}v8M${n1(b)},${y - 22}v8" stroke="${PINK}" stroke-width="1.4" fill="none"/>`)
-    parts.push(txt((a + b) / 2, y - 25, `${cm.toFixed(1)} cm`, { anchor: 'middle', size: 13, weight: 800, fill: PINK, font: SANS }))
-  }
-  lines.forEach((l, k) => parts.push(txt(14, ty0 + k * 14, l, { size: 10.5, fill: LABEL, font: SANS })))
-  return svgDoc(W, H, parts.join(''))
-}
-
 // ---------------------------------------------------------------- the "?" guide
 
-const GUIDE: [string, string, string][] = [
-  ['Measure', 'Screw the antenna onto PORT 1. The big number is the SWR at 906.875 MHz (Meshtastic): 1.0 is perfect, under 1.5 excellent (green), under 2 good (amber), above that poor (red). The grade is the worse of Meshtastic and MeshCore. The chart below has four views; each says what it shows under it.', LCD],
-  ['Trim', 'For cutting or bending an antenna. The big number is where it resonates now (where X crosses zero, else the bottom of the SWR dip) against your target; the arrow says which way to go. Each change is logged when the dip moves and holds still, or press ✂ Snip. "You passed it" means the last change went past the target, with how to undo it.', YELLOW],
-  ['Library', 'Save the antenna on PORT 1 by name; the same name again keeps a version. Every antenna keeps its own colour, the same on its card, on the chart, in A/B and in its history. ○ chart overlays it, A and B compare two, N versions shows how it changed.', MAGENTA],
-  ['QC', 'For units you sell: PASS or FAIL against the rule (SWR ≤ 2 across 902–928 and ≤ 1.5 at both mesh channels), with a CSV row, the sweep and a printable certificate per unit. Refused while the NanoVNA is not calibrated.', AMBER],
-  ['Bands', 'Other radios: 2 m and 70 cm (the UV-5R), 1090 ADS-B, 433 ISM, FM, and your own in presets.json. Each band keeps its calibration in its own save slot (1–6). Pressing a band recalls it; Back to Meshtastic recalls slot 0. Power-on is always slot 0, the Meshtastic layout, unchanged.', SKY],
-  ['Calibrate', 'OPEN, SHORT, LOAD screwed onto PORT 1 (at the end of any cable you measure through), in that order; each step checks the right plug is on. A band you have not calibrated says UNCAL: its numbers are rough.', GREEN],
-  ['Buttons', 'A press shows on its button at once and at the top ("Doing now"); a press while another runs waits as "Next", and the newest one wins. Three quick presses run once. ⤢ opens a view in its own tab.', ORANGE],
-  ['Several sessions', 'With the tab open in more than one Claude session, one of them talks to the NanoVNA and the rest show what it read; nobody sweeps while no VNA tab is on screen. /vna answers from the latest reading.', VIOLET],
-]
-
-// Checked against DiSlord's firmware source (1.2.40 and 1.2.46 on either side of this H4's 1.2.44).
-const CAN_DO: [string, string][] = [
-  ['Frequency range', 'The firmware sweeps from under 1 kHz to 2.7 GHz. Above 300 MHz it measures on its oscillator’s harmonics, so readings get weaker and noisier the higher you go: its dynamic range is best below about 300 MHz.'],
-  ['Two measurements', 'S11 on PORT 1 (CH0): what reflects back, for antennas. S21 from PORT 1 to PORT 2 (CH1): what passes through, for filters, cables and attenuators. This tab reads S11.'],
-  ['Cables and faults (TDR)', 'Its time-domain transform turns a sweep into distance along a cable: its length and where a fault is. The firmware also has cable, resonance and LC-match measure modes on its own screen.'],
-  ['Points and slots', 'Up to 401 points a sweep (this tab uses 201). 7 save slots (0–6) on the H4, each a whole state: sweep, calibration, traces and markers.'],
-  ['Accuracy is the calibration', 'Numbers are only as good as the OPEN, SHORT, LOAD done for the range you sweep, at the point you measure. Change the range or add a cable or adapter, and calibrate again.'],
-  ['Never transmit into it', 'Never connect a transmitting radio, or a node’s antenna socket while it can transmit, to the NanoVNA: its ports are made for the tiny signal it sends itself, and a transmitter’s power can destroy them. Test antennas, not live outputs.'],
-]
-
-function guideSvg(g: Geo): string {
-  const c = g.c
-  const W = g.W
-  const cols = c ? 1 : 2
-  const gap = 12
-  const cw = (W - 28 - gap * (cols - 1)) / cols
-  const chars = Math.floor((cw - 50) / 6.1)
-  const cards = GUIDE.map(([t, s, col]) => ({ t, col, lines: wrapText(s, chars) }))
-  const can = CAN_DO.map(([t, s]) => ({ t, lines: wrapText(s, c ? chars + 4 : Math.floor((W - 70) / 6.1)) }))
-  const cardH = (k: { lines: string[] }) => 36 + k.lines.length * 14
-  const parts: string[] = []
-  let y = 46
-  const rows: number[] = []
-  for (let i = 0; i < cards.length; i += cols) {
-    const h = Math.max(...cards.slice(i, i + cols).map(cardH))
-    rows.push(h)
-  }
-  const gH = rows.reduce((a, b) => a + b + gap, 0)
-  const canH = 40 + can.reduce((a, k) => a + 22 + k.lines.length * 14, 0)
-  const H = y + gH + 20 + canH + 14
-  parts.push(`<rect x="0" y="0" width="${W}" height="${H}" rx="12" fill="${BG}"/>`)
-  parts.push(txt(14, 28, 'How the VNA tab works', { size: c ? 17 : 19, weight: 800, fill: BRIGHT, font: SANS }))
-  cards.forEach((k, i) => {
-    const col = i % cols
-    const row = Math.floor(i / cols)
-    const cx = 14 + col * (cw + gap)
-    const cy = y + rows.slice(0, row).reduce((a, b) => a + b + gap, 0)
-    const h = rows[row] ?? cardH(k)
-    parts.push(`<rect x="${n1(cx)}" y="${n1(cy)}" width="${n1(cw)}" height="${n1(h)}" rx="10" fill="#0f161a" stroke="${k.col}" stroke-opacity="0.45"/>`)
-    parts.push(`<rect x="${n1(cx)}" y="${n1(cy + 10)}" width="4" height="${n1(h - 20)}" rx="2" fill="${k.col}"/>`)
-    parts.push(`<circle cx="${n1(cx + 24)}" cy="${n1(cy + 20)}" r="11" fill="${k.col}" fill-opacity="0.16" stroke="${k.col}"/>`)
-    parts.push(txt(cx + 24, cy + 24.5, String(i + 1), { anchor: 'middle', size: 11, weight: 800, fill: k.col }))
-    parts.push(txt(cx + 42, cy + 25, k.t, { size: 13, weight: 700, fill: k.col, font: SANS }))
-    k.lines.forEach((l, j) => parts.push(txt(cx + 16, cy + 46 + j * 14, l, { size: 10.5, fill: LABEL, font: SANS })))
-  })
-  y += gH + 14
-  parts.push(`<rect x="14" y="${y}" width="${W - 28}" height="${canH}" rx="10" fill="#0d1c1f" stroke="${LCD}" stroke-opacity="0.35"/>`)
-  parts.push(txt(28, y + 24, 'WHAT THIS NANOVNA CAN DO', { size: 10.5, fill: LCD, weight: 700, spacing: 1.5 }))
-  let yy = y + 46
-  can.forEach((k, i) => {
-    const col = i === can.length - 1 ? RED : LCD
-    parts.push(`<circle cx="32" cy="${yy - 4}" r="3.5" fill="${col}"/>`)
-    parts.push(txt(44, yy, k.t, { size: 12, weight: 700, fill: i === can.length - 1 ? RED : BRIGHT, font: SANS }))
-    yy += 16
-    k.lines.forEach(l => {
-      parts.push(txt(44, yy, l, { size: 10.5, fill: LABEL, font: SANS }))
-      yy += 14
-    })
-    yy += 6
-  })
-  return svgDoc(W, H, parts.join(''))
-}
-
-function guideText(): string {
-  return [
-    'How the VNA tab works',
-    ...GUIDE.map(([t, s], i) => `${i + 1}. ${t}: ${s}`),
-    '',
-    'What this NanoVNA can do',
-    ...CAN_DO.map(([t, s]) => `• ${t}: ${s}`),
-  ].join('\n')
-}
 // ---------------------------------------------------------------- text
-
-// PASS / FAIL in block letters for the terminal, which draws no SVG.
-const GLYPHS: Record<string, string[]> = {
-  P: ['████ ', '█   █', '████ ', '█    ', '█    '],
-  A: [' ███ ', '█   █', '█████', '█   █', '█   █'],
-  S: [' ████', '█    ', ' ███ ', '    █', '████ '],
-  F: ['█████', '█    ', '████ ', '█    ', '█    '],
-  I: ['███', ' █ ', ' █ ', ' █ ', '███'],
-  L: ['█    ', '█    ', '█    ', '█    ', '█████'],
-}
-function blocks(word: string): string[] {
-  return [0, 1, 2, 3, 4].map(r => word.split('').map(ch => GLYPHS[ch]?.[r] ?? '').join('  '))
-}
 
 // A one-line SWR strip for the terminal.
 function strip(): string {
@@ -2876,39 +1693,6 @@ function stripRuns(): [string, string][] {
     else out.push([ch, col])
   })
   return out
-}
-
-// A text meter for the terminal: the SWR on a |Γ| scale to 4, as the hero's needle.
-function meterBar(swr: number, n = 24): string {
-  const k = Math.round((Math.min(gam(swr), G_FULL) / G_FULL) * n)
-  return `${'█'.repeat(k)}${'░'.repeat(Math.max(0, n - k))}`
-}
-
-function heroLine(mt: Mark): string {
-  return `SWR ${fmt(mt.swr)} at 906.875 MHz (Meshtastic) · ${verdict(mt.swr).text}: ${meaning(mt.swr)}, ${fmt(mt.mismatchDb, 2)} dB mismatch loss`
-}
-
-function compareRows(a: Group, b: Group): [string, string, string, number][] {
-  // [metric, A, B, winner: -1 A, 1 B, 0 none]
-  const ma = a.latest.metrics
-  const mb = b.latest.metrics
-  const low = (x?: number, y?: number) => (x === undefined || y === undefined || Math.abs(x - y) < 0.005 ? 0 : x < y ? -1 : 1)
-  const w = (m: Metrics | null) => (m?.under2 ? m.under2[1] - m.under2[0] : 0)
-  const rd = (m: Metrics | null) => (m?.resonance?.mhz ? Math.abs(m.resonance.mhz - 908.7) : undefined)
-  const rows: [string, string, string, number][] = [
-    ['SWR @906.875', fmt(ma?.meshtastic?.swr), fmt(mb?.meshtastic?.swr), low(ma?.meshtastic?.swr, mb?.meshtastic?.swr)],
-    ['SWR @910.525', fmt(ma?.meshcore?.swr), fmt(mb?.meshcore?.swr), low(ma?.meshcore?.swr, mb?.meshcore?.swr)],
-    ['SWR @915', fmt(ma?.mid?.swr), fmt(mb?.mid?.swr), low(ma?.mid?.swr, mb?.mid?.swr)],
-    ['Best', ma ? `${fmt(ma.best.swr)} @${ma.best.mhz.toFixed(1)}` : '—', mb ? `${fmt(mb.best.swr)} @${mb.best.mhz.toFixed(1)}` : '—', low(ma?.best.swr, mb?.best.swr)],
-    [
-      'Under SWR 2',
-      ma?.under2 ? `${ma.under2[0]}–${ma.under2[1]}` : 'never',
-      mb?.under2 ? `${mb.under2[0]}–${mb.under2[1]}` : 'never',
-      Math.abs(w(ma) - w(mb)) < 0.5 ? 0 : w(ma) > w(mb) ? -1 : 1,
-    ],
-    ['Resonance', ma?.resonance?.mhz ? `${ma.resonance.mhz.toFixed(1)} MHz` : 'none', mb?.resonance?.mhz ? `${mb.resonance.mhz.toFixed(1)} MHz` : 'none', low(rd(ma), rd(mb))],
-  ]
-  return rows
 }
 
 // The whole reading as text: what /vna answers, so a phone or terminal gets the picture without the tab.
@@ -2997,20 +1781,12 @@ function compareText(): string {
   return compareTextOf(a, b)
 }
 
-function compareTextOf(a: Group, b: Group): string {
-  const rows = compareRows(a, b)
-  const out = [`Compare  A: ${a.label} (${day(a.latest.saved)})   B: ${b.label} (${day(b.latest.saved)})`]
-  for (const [k, va, vb, win] of rows) out.push(`${k.padEnd(13)} ${va.padEnd(16)} ${vb.padEnd(16)} ${win < 0 ? '← A' : win > 0 ? '← B' : ''}`)
-  return out.join('\n')
-}
-
 // ---------------------------------------------------------------- one NanoVNA, several Claude sessions
 // Every session with this plugin loaded runs this module. One of them holds vna.py's polling lease
 // and sweeps (only while some session's VNA tab is on screen); the rest read the reading it shares
 // in live.json and never touch the device. A press from any session goes to the device directly
 // (vna.py waits a bounded time for nanovna.lock and answers "busy" past it).
 
-const SESSION = `s${Math.random().toString(36).slice(2, 10)}`
 let LEASE_FILE = ''
 let WATCH_FILE = ''
 let LIVE_FILE = ''
@@ -3025,17 +1801,10 @@ function setHome(home: string): void {
   WATCH_FILE = `${cacheDir}/watch-${SESSION}`
   LIVE_FILE = `${HOME}/Library/Application Support/vna/live.json`
 }
-// A shared reading younger than this answers /vna without touching the device.
-const FRESH_MS = 10_000
 let liveAt = 0
 let lastBeat = 0
 let shareNote = ''
 let busyNote = ''
-
-// Background work never rejects into the void (a reload or a test ending under it).
-function bg(p: Promise<unknown>): void {
-  p.catch(() => undefined)
-}
 
 async function readJsonFile($: any, path: string): Promise<any> {
   try {
@@ -3065,30 +1834,9 @@ function within<T>($: any, p: Promise<T>, ms: number): Promise<T | null> {
   })
 }
 
-function ago(ms: number): string {
-  const s = Math.max(0, Math.round(ms / 1000))
-  return s < 90 ? `${s} s` : s < 5400 ? `${Math.round(s / 60)} min` : `${Math.round(s / 3600)} h`
-}
-
 // ---------------------------------------------------------------- the script: lanes, presses, the timing log
 
-// Processes run in lanes. The device lane runs one process at a time: a press's first ('action'),
-// the polls after it ('poll': only while no press runs or waits, and never two of a kind queued).
-// Reads that never touch the device (library, presets, the QC log, /vna's quick read) run in the
-// free lane beside it, so a press never waits behind them.
-type Lane = 'action' | 'poll' | 'free'
-type Proc = { lane: 'action' | 'poll'; id: string; argv: string[]; timeoutMs: number; resolve: (v: any) => void; reject: (e: unknown) => void; promise: Promise<any>; waitedOn: boolean }
-const actionQ: Proc[] = []
-const pollQ: Proc[] = []
 let procNow: Proc | null = null
-
-function procId(argv: string[]): string {
-  return argv
-    .filter(a => a !== 'python3' && !a.startsWith('--') && !/^s[0-9a-z]{4,}$/.test(a) && !a.startsWith('{'))
-    .map(a => (a.includes('/') ? a.split('/').pop() ?? a : a))
-    .slice(0, 3)
-    .join(' ')
-}
 
 async function spawnJson($: any, argv: string[], timeoutMs: number): Promise<any> {
   try {
@@ -3152,29 +1900,8 @@ async function script($: any, args: string[], timeoutMs = 20_000, lane: Lane = '
 // replaces it (the last click wins); the same press again joins the one running or waiting. The
 // button shows it at once ("Saving…", "Queued: …") and the top says what it is doing.
 
-type ActEnd = 'ran' | 'joined' | 'superseded'
-type Plan = { step: string; ms: number; id?: string }
-type ActOpts = { key?: string; plan?: () => Plan }
-type Intent = {
-  key: string
-  label: string
-  job: () => Promise<unknown>
-  plan?: () => Plan
-  pressedAt: number
-  startedAt: number
-  step: string
-  expectMs: number
-  planId: string
-  queued: boolean
-  coalesced: number
-  failed: string
-  done: Promise<ActEnd>
-  end: (r: ActEnd) => void
-}
 let current: Intent | null = null
 let pending: Intent | null = null
-// How long each kind of press took this session (the "about N s" after the first time).
-const learned = new Map<string, number>()
 
 function intent($: any, label: string, job: () => Promise<unknown>, opts: ActOpts = {}): Promise<ActEnd> {
   const key = opts.key ?? label
@@ -3274,17 +2001,12 @@ const K = {
   export: 'export',
 }
 
-type Look = { label: string; variant?: 'primary'; dimColor?: boolean }
 // A button for the press it makes: primary "<doing>…" while that runs, dim "Queued: …" while it waits.
 function look(keys: string | string[], idle: string, doing?: string, queued?: string): Look {
   const ks = typeof keys === 'string' ? [keys] : keys
   if (current && ks.includes(current.key)) return { label: doing ?? `${current.label}…`, variant: 'primary' }
   if (pending && ks.includes(pending.key)) return { label: queued ?? `Queued: ${pending.label}`, dimColor: true }
   return { label: idle }
-}
-
-function lookProps(l: Look): { label: string; variant?: 'primary'; dimColor?: boolean } {
-  return { label: l.label, ...(l.variant ? { variant: l.variant } : {}), ...(l.dimColor ? { dimColor: true } : {}) }
 }
 
 // What a command says about its press once it has been made.
@@ -3300,15 +2022,6 @@ function endText(end: ActEnd | null, text: string, label: string): string {
 let logLines: string[] | null = null
 let logLoad: Promise<void> | null = null
 let logFlush: { cancel: () => void } | null = null
-const pollLogged = new Map<string, number>()
-
-function iso(t: number): string {
-  try {
-    return new Date(t).toISOString()
-  } catch {
-    return String(t)
-  }
-}
 
 function logLine($: any, rec: Record<string, unknown>): void {
   bg(
@@ -3347,11 +2060,6 @@ function notePoll($: any, id: string, ms: number, lane: string, blocked: boolean
 }
 
 // ---------------------------------------------------------------- the store
-
-function isRules(v: unknown): v is Rules {
-  const r = v as Rules
-  return !!r && typeof r === 'object' && [r.lo, r.hi, r.bandMax, r.spotMax].every(n => typeof n === 'number' && n > 0) && Array.isArray(r.spots) && r.hi > r.lo
-}
 
 async function loadStore($: any): Promise<void> {
   if (loaded) return
@@ -3413,11 +2121,6 @@ async function saveStore($: any): Promise<void> {
 
 // ---------------------------------------------------------------- readings in
 
-// The SWR a reading's level goes by: ok under 2, warn to 3, alert from 3.
-function swrLevel(swr: number | undefined): Level {
-  return swr === undefined || !Number.isFinite(swr) ? 'ok' : swr >= 3 ? 'alert' : swr >= 2 ? 'warn' : 'ok'
-}
-
 // The status line, only while a NanoVNA is connected, and the same line without 'VNA · ' in
 // ~/.claude/mod-status/vna.json for the Herdr strip: warn with nothing on PORT 1, alert on a QC FAIL,
 // else by the SWR. Nothing (and no file) while none is connected or after /vna hide.
@@ -3452,10 +2155,6 @@ async function isWatched($: any, now: number): Promise<boolean> {
     if (Array.isArray(ps)) return ps.some((p: any) => (p.id === PANE || String(p.id).startsWith('vna-')) && p.isShown && p.isPlaced !== false)
   } catch {}
   return Object.values(drawnAt).some(t => now - t < 10_000)
-}
-
-function wanted(id: string, now: number): boolean {
-  return now - (drawnAt[id] ?? 0) < 15_000
 }
 
 // A reading from anywhere (this session's poll, another's live.json, a press): kept when it is newer
@@ -3551,15 +2250,6 @@ async function loadQcLog($: any): Promise<void> {
 }
 
 // ---------------------------------------------------------------- presses
-
-// A press's answer from vna.py: a reading to show, or why not.
-function deviceTrouble(r: any): string {
-  if (!r) return 'no answer from vna.py'
-  if (r.busy) return String(r.say ?? 'NanoVNA busy')
-  if (r.connected === false) return 'NanoVNA not connected.'
-  if (r.error) return String(r.error)
-  return ''
-}
 
 async function saveAntenna($: any, name: string): Promise<string> {
   const label = name.trim() || `Antenna ${groups().length + 1}`
@@ -3987,75 +2677,15 @@ async function openFile($: any, path: string): Promise<void> {
   } catch {}
 }
 
-function parseRules(arg: string): Rules | string {
-  if (/^default/i.test(arg.trim())) return DEFAULT_RULES
-  const r: Rules = { ...qcRules, spots: [...qcRules.spots] }
-  for (const tok of arg.trim().split(/\s+/).filter(Boolean)) {
-    const m = tok.match(/^(band|spot|lo|hi|spots|range)=(.+)$/i)
-    if (!m) return `Not understood: ${tok}. Use band=2.0 spot=1.5 range=902-928 spots=906.875,910.525, or default.`
-    const k = (m[1] ?? '').toLowerCase()
-    const v = m[2] ?? ''
-    if (k === 'spots') r.spots = v.split(',').map(Number).filter(n => n > 0)
-    else if (k === 'range') {
-      const [a = 0, b = 0] = v.split(/[-–]/).map(Number)
-      if (!(a > 0 && b > a)) return `Bad range ${v}.`
-      r.lo = a
-      r.hi = b
-    } else {
-      const n = Number(v)
-      if (!(n > 0)) return `Bad number ${v}.`
-      if (k === 'band') r.bandMax = n
-      if (k === 'spot') r.spotMax = n
-      if (k === 'lo') r.lo = n
-      if (k === 'hi') r.hi = n
-    }
-  }
-  return isRules(r) ? r : 'Those rules do not add up (the range must run low to high).'
-}
-
-function ruleText(r: Rules): string {
-  return `PASS when SWR ≤ ${lim(r.bandMax)} at every point ${r.lo}–${r.hi} MHz${r.spots.length ? ` and SWR ≤ ${lim(r.spotMax)} at ${r.spots.join(' and ')} MHz` : ''}`
-}
-
 // ---------------------------------------------------------------- steady pictures
 
-// The height an SVG takes at the width the pane gives it (its own width, at most maxW). Given as
-// the Svg's height, the box keeps its size while a refreshed picture loads, so the pane never
-// shrinks for a moment and the scroll position stays where the person put it.
-function svgHeight(source: string, maxW: number): number | undefined {
-  const head = source.slice(0, 800)
-  const vb = /viewBox="\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/.exec(head)
-  const wa = /<svg[^>]*\swidth="([\d.]+)"/.exec(head)
-  const w = vb ? Number(vb[1]) : NaN
-  const h = vb ? Number(vb[2]) : NaN
-  if (!(w > 0 && h > 0)) return undefined
-  const drawn = Math.min(wa ? Number(wa[1]) : w, maxW)
-  return Math.round((drawn * h) / w)
-}
 // ---------------------------------------------------------------- 📸 Export: one report card
 // A tall portrait image of the reading, built from the same pictures the tab draws (their phone
 // layouts, drawn 500 px wide on a 540 px card): a header, the hero, the SWR chart, an A/B compare
 // when one is set, the Smith chart, the numbers and a footer. vna.py writes it to
 // ~/NanoVNA/exports/<name>-<yyyymmdd-hhmm>.svg and .png (2x: 1080 px wide).
 
-const EXPORT_W = 540
-const EXPORT_PIECE = 500
 let lastExport: { ok: boolean; say: string; png?: string | null; svg?: string } | null = null
-
-// One picture placed inside the card, its ids renamed so no two pictures share a gradient or a filter.
-function nestSvg(src: string, x: number, y: number, w: number, prefix: string): { svg: string; h: number } {
-  const vb = /viewBox="\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/.exec(src.slice(0, 800))
-  const W = Number(vb?.[1] ?? 360)
-  const H = Number(vb?.[2] ?? 200)
-  const h = Math.round((w * H) / W)
-  const body = src
-    .replace(/^<svg[^>]*>/, '')
-    .replace(/<\/svg>\s*$/, '')
-    .replace(/\sid="([^"]+)"/g, ` id="${prefix}$1"`)
-    .replace(/url\(#([^)]+)\)/g, `url(#${prefix}$1)`)
-    .replace(/href="#([^"]+)"/g, `href="#${prefix}$1"`)
-  return { svg: `<svg x="${x}" y="${y}" width="${w}" height="${h}" viewBox="0 0 ${W} ${H}" overflow="hidden">${body}</svg>`, h }
-}
 
 // The numbers: SWR, return loss, reflected power, mismatch loss and Z at each frequency, then the
 // best point, the stretch under 2:1, resonance and the trim hint.
@@ -4106,12 +2736,6 @@ function numbersSvg(g: Geo): string {
     y += 15
   }
   return svgDoc(W, H, p.join(''))
-}
-
-function stamp(t: number): string {
-  const d = new Date(t)
-  const h = d.getHours()
-  return `${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} · ${h % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`
 }
 
 // The whole card. Every piece is the tab's own picture, so the card matches the tab exactly.
@@ -4193,9 +2817,6 @@ async function exportCard($: any, name: string): Promise<string> {
 }
 // ---------------------------------------------------------------- drawing the tab
 
-// What every view draws with: the surface's elements, its width, and which pane it is in.
-type Ctx = { els: any; surface: string; narrow: boolean; geo: Geo; Svg: any; Input: any; pane: string; now: number }
-
 function ctxOf($: any, e: any, pane: string, now: number): Ctx {
   const els = $.ui.resolve(e) as any
   const surface = String(e.surface)
@@ -4203,14 +2824,6 @@ function ctxOf($: any, e: any, pane: string, now: number): Ctx {
   // Every table names every element, an absent one drawing nothing, so pick by surface: the
   // terminal draws no Svg, the phone no Input.
   return { els, surface, narrow, geo: { W: narrow ? W_PHONE : W_DESK, c: narrow }, Svg: surface === 'terminal' ? null : els.Svg, Input: narrow ? null : els.Input, pane, now }
-}
-
-// A picture with its height from its markup (svgHeight), so a refreshed picture never drops to no
-// height while it loads. hover: drawn interactive on the desktop, where its <title> tooltips work.
-function Pic(ctx: Ctx, source: string, alt: string, hover = false): unknown {
-  const S = ctx.Svg
-  if (!S) return null
-  return <S source={source} alt={alt} height={svgHeight(source, ctx.geo.W)} {...(hover && ctx.surface === 'desktop' ? { isInteractive: true } : {})} />
 }
 
 // A section's title row, marked like the Radio tab's: a coloured bar, the title, a dim hint, and
@@ -4227,16 +2840,6 @@ function Head($: any, ctx: Ctx, p: { k: string; title: string; hint?: string; co
       {p.extra ?? null}
       {p.extra && tab ? <Text> </Text> : null}
       {tab ? <Button key={`tab:${tab}`} plain dimColor label={ctx.narrow ? '⤢' : '⤢ own tab'} onPress={() => void openTab($, tab)} /> : null}
-    </Box>
-  )
-}
-
-function Btn(ctx: Ctx, key: string, l: Look | string, press: () => void, primary = false, plain = false): unknown {
-  const { Box, Button } = ctx.els
-  const lk = typeof l === 'string' ? { label: l } : l
-  return (
-    <Box key={`bx:${key}`} paddingRight={1}>
-      <Button key={key} label={lk.label} {...(primary || lk.variant ? { variant: 'primary' } : {})} {...(lk.dimColor ? { dimColor: true } : {})} {...(plain ? { plain: true } : {})} onPress={press} />
     </Box>
   )
 }
@@ -4313,28 +2916,6 @@ function navRow($: any, ctx: Ctx): unknown {
         $.ui.invalidate('ui.render')
       }, guideOpen)}
       {Btn(ctx, 'export', look(K.export, '📸 Export', 'Exporting…', 'Queued: Export'), () => void exportCard($, ''))}
-    </Box>
-  )
-}
-
-function Row(ctx: Ctx, p: { name: string; mark?: Mark; k?: string }): unknown {
-  const { Box, Text } = ctx.els
-  const v = verdict(p.mark?.swr)
-  return (
-    <Box key={p.k ?? p.name} flexWrap="wrap">
-      <Box width={ctx.narrow ? 11 : 14}>
-        <Text bold>{p.name}</Text>
-      </Box>
-      <Box width={13}>
-        <Text dimColor>{p.mark ? `${p.mark.mhz.toFixed(3)} MHz` : 'off sweep'}</Text>
-      </Box>
-      <Box width={10}>
-        <Text bold color={v.color}>{p.mark ? `SWR ${fmt(p.mark.swr)}` : ''}</Text>
-      </Box>
-      <Box width={11}>
-        <Text color={v.color}>{v.text}</Text>
-      </Box>
-      <Text dimColor>{p.mark?.z ? zText(p.mark.z) : ''}</Text>
     </Box>
   )
 }
@@ -4989,9 +3570,6 @@ function tabPane($: any, ctx: Ctx, v: TabView): unknown {
 
 // ---------------------------------------------------------------- commands
 
-// A command waits for its press at most this long: past it the press goes on and the reply says so.
-const CMD_WAIT_MS = 7000
-
 async function answer($: any, p: Promise<string>): Promise<{ text: string }> {
   const t = await within($, p, CMD_WAIT_MS)
   return { text: t ?? endText(null, '', 'it') }
@@ -5023,12 +3601,6 @@ async function quickReport($: any): Promise<string> {
 }
 
 // ---------------------------------------------------------------- the tools Claude can call (hooks/tools.ts)
-
-// A tool's press waits this long for the queue; past it the press goes on and the answer says so.
-const TOOL_WAIT_MS = 30_000
-const COLOR_NAMES = ['cyan', 'magenta', 'sky blue', 'violet', 'ice', 'pink', 'teal', 'lilac']
-
-const r1 = (n: number | undefined | null, d = 2): number | null => (typeof n === 'number' && Number.isFinite(n) ? Number(n.toFixed(d)) : null)
 
 // The numbers behind report(), for the vna_reading tool.
 function readingData(): Record<string, unknown> {

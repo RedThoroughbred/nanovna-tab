@@ -88,10 +88,10 @@ export function lcdNumber(parts: string[], text: string, x: number, y: number, w
     }
     const t = Math.max(3, w * 0.19)
     const segs = segPolys(dx, y, w, h, t)
-    const on = SEG[ch] ?? ''
+    const litKeys = SEG[ch] ?? ''
     for (const [k, pts] of Object.entries(segs)) {
       ghost.push(`<polygon points="${pts}"/>`)
-      if (on.includes(k)) lit.push(`<polygon points="${pts}"/>`)
+      if (litKeys.includes(k)) lit.push(`<polygon points="${pts}"/>`)
     }
     dx += w + gap
   }
@@ -343,8 +343,8 @@ export function resonanceOf(curve: [number, number][], s11: [number, number][] |
 }
 
 // Crossed the target: from beyond it on one side to beyond it on the other.
-export function crossed(d0: number, d1: number, on: number): boolean {
-  return (d0 < -on && d1 > on) || (d0 > on && d1 < -on)
+export function crossed(d0: number, d1: number, tol: number): boolean {
+  return (d0 < -tol && d1 > tol) || (d0 > tol && d1 < -tol)
 }
 
 export function fmtOff(d: number): string {

@@ -968,11 +968,11 @@ function annunciators(parts: string[], x: number, y: number, maxX: number, c: bo
     ['QC', qcOn, AMBER],
   ]
   let ax = x
-  for (const [s, on, col] of ann) {
+  for (const [s, lit, col] of ann) {
     const w = tw(s, 10) + 12
     if (ax + w > maxX) break
-    parts.push(`<rect x="${n1(ax)}" y="${y}" width="${n1(w)}" height="16" rx="3" fill="${on ? col : 'none'}" fill-opacity="${on ? 0.12 : 0}" stroke="${col}" stroke-opacity="${on ? 0.75 : 0.14}"/>`)
-    parts.push(txt(ax + w / 2, y + 12, s, { anchor: 'middle', size: 10, weight: 700, fill: col, opacity: on ? 1 : 0.18 }))
+    parts.push(`<rect x="${n1(ax)}" y="${y}" width="${n1(w)}" height="16" rx="3" fill="${lit ? col : 'none'}" fill-opacity="${lit ? 0.12 : 0}" stroke="${col}" stroke-opacity="${lit ? 0.75 : 0.14}"/>`)
+    parts.push(txt(ax + w / 2, y + 12, s, { anchor: 'middle', size: 10, weight: 700, fill: col, opacity: lit ? 1 : 0.18 }))
     ax += w + 6
   }
   void c
@@ -1095,7 +1095,7 @@ function itemBand(i: Item): BandDef | null {
 // One antenna as a card in its own colour (the colour its trace has on every chart): a tinted
 // header, a colour bar on the left and its swatch by the name; the grade and the sparkline keep
 // the zone colours. on: drawn on the chart now, or its history shown.
-function cardSvg(gr: Group, g: Geo, on?: 'chart' | 'history'): string {
+function cardSvg(gr: Group, g: Geo, mark?: 'chart' | 'history'): string {
   const W = g.c ? W_PHONE : 322
   const H = 134
   const i = gr.latest
@@ -1116,11 +1116,11 @@ function cardSvg(gr: Group, g: Geo, on?: 'chart' | 'history'): string {
   const parts: string[] = []
   parts.push(
     `<defs>${glowDef('glow', W, H, 1.6)}${zoneGrad('zs', sy0, sy1, y(2), y(1.5))}${zoneCols('zf', sx0, sx1, curve, x)}${fadeMask('fade', W, H, sy0, sy1, 0.7, 0.1)}<clipPath id="sp"><rect x="${sx0}" y="${sy0}" width="${sx1 - sx0}" height="${sy1 - sy0}" rx="4"/></clipPath>` +
-      `<linearGradient id="tint" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${ac}" stop-opacity="${on ? 0.3 : 0.2}"/><stop offset="1" stop-color="${ac}" stop-opacity="0"/></linearGradient></defs>`,
+      `<linearGradient id="tint" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${ac}" stop-opacity="${mark ? 0.3 : 0.2}"/><stop offset="1" stop-color="${ac}" stop-opacity="0"/></linearGradient></defs>`,
   )
   parts.push(`<rect x="0.75" y="0.75" width="${W - 1.5}" height="${H - 1.5}" rx="12" fill="#0f161a"/>`)
   parts.push(`<rect x="0.75" y="0.75" width="${W - 1.5}" height="58" rx="12" fill="url(#tint)"/>`)
-  parts.push(`<rect x="0.75" y="0.75" width="${W - 1.5}" height="${H - 1.5}" rx="12" fill="none" stroke="${ac}" stroke-opacity="${on ? 1 : 0.45}" stroke-width="${on ? 2.2 : 1.2}"/>`)
+  parts.push(`<rect x="0.75" y="0.75" width="${W - 1.5}" height="${H - 1.5}" rx="12" fill="none" stroke="${ac}" stroke-opacity="${mark ? 1 : 0.45}" stroke-width="${mark ? 2.2 : 1.2}"/>`)
   parts.push(`<rect x="0.75" y="14" width="4" height="${H - 28}" rx="2" fill="${ac}"/>`)
   parts.push(`<circle cx="34" cy="34" r="19" fill="${gc}" fill-opacity="0.14" stroke="${gc}" stroke-width="1.6"/>`)
   parts.push(`<g filter="url(#glow)">${txt(34, 42, grd, { anchor: 'middle', size: 22, weight: 800, fill: gc, font: SANS })}</g>`)
@@ -1135,7 +1135,7 @@ function cardSvg(gr: Group, g: Geo, on?: 'chart' | 'history'): string {
   const ib = itemBand(i)
   const sub = `${gr.items.length > 1 ? `${gr.items.length} versions` : '1 sweep'} · ${day(i.saved)}${ib && ib.id !== 'mesh' ? ` · ${ib.short}` : ''}`
   parts.push(`<path d="M62,${44.5}h14" stroke="${ac}" stroke-width="3" stroke-linecap="round"/>`)
-  parts.push(txt(82, 48, on === 'chart' ? `${sub} · on chart` : on === 'history' ? `${sub} · history shown` : sub, { size: 10, fill: on ? ac : AXIS }))
+  parts.push(txt(82, 48, mark === 'chart' ? `${sub} · on chart` : mark === 'history' ? `${sub} · history shown` : sub, { size: 10, fill: mark ? ac : AXIS }))
   if (trendS) parts.push(pill(W - 12, 30, trendS, { fill: better ? GREEN : worse ? RED : AXIS, anchor: 'end' }))
   // The sparkline: the whole sweep, the band shaded, coloured by zone.
   parts.push(`<rect x="${sx0}" y="${sy0}" width="${sx1 - sx0}" height="${sy1 - sy0}" rx="4" fill="${PLOT}"/>`)
@@ -1453,9 +1453,9 @@ function trimLiveSvg(g: Geo): string {
   const method = r ? (r.method === 'X = 0' ? 'WHERE X = 0' : 'THE SWR DIP') : '—'
   parts.push(txt(24, lcdY - 14, `RESONANCE · ${method}`, { size: 10.5, fill: LCD, weight: 700, spacing: 1, opacity: 0.85 }))
   const txtF = r && !r.edge ? fmtF(r.f) : '---.-'
-  const on = !!r && !r.edge && Math.abs(r.f - t.f) <= trimTols(t.f).on
-  const ex = lcdNumber(parts, txtF.padStart(6, ' '), 22, lcdY, dig.w, dig.h, dig.gap, on ? GREEN : r ? YELLOW : AXIS)
-  parts.push(txt(ex + 4, lcdY + dig.h - 2, 'MHz', { size: c ? 14 : 16, weight: 700, fill: on ? GREEN : YELLOW, opacity: 0.85 }))
+  const hit = !!r && !r.edge && Math.abs(r.f - t.f) <= trimTols(t.f).on
+  const ex = lcdNumber(parts, txtF.padStart(6, ' '), 22, lcdY, dig.w, dig.h, dig.gap, hit ? GREEN : r ? YELLOW : AXIS)
+  parts.push(txt(ex + 4, lcdY + dig.h - 2, 'MHz', { size: c ? 14 : 16, weight: 700, fill: hit ? GREEN : YELLOW, opacity: 0.85 }))
   const ty = lcdY + dig.h + 24
   const d = r && !r.edge ? r.f - t.f : null
   parts.push(txt(24, ty, `target ${t.f} MHz · ${t.name}`, { size: 11.5, fill: GREEN, weight: 700 }))
@@ -1995,7 +1995,7 @@ const K = {
   layout: 'layout',
   markers: (mode: string) => `markers ${mode}`,
   band: (id: string) => `band ${id}`,
-  xtrace: (on: boolean) => `xtrace ${on ? 'on' : 'off'}`,
+  xtrace: (show: boolean) => `xtrace ${show ? 'on' : 'off'}`,
   powerOn: 'poweron save',
   remove: (file: string) => `delete ${file}`,
   export: 'export',
@@ -2453,19 +2453,19 @@ function xOn(): boolean {
 }
 
 // The 4th trace: reactance X, on the NanoVNA's screen now; nothing saved.
-async function setXTrace($: any, on: boolean): Promise<string> {
-  if (live?.traces && xOn() === on) {
-    note = on ? 'Trace 4 already shows X.' : 'Trace 4 is already off.'
+async function setXTrace($: any, show: boolean): Promise<string> {
+  if (live?.traces && xOn() === show) {
+    note = show ? 'Trace 4 already shows X.' : 'Trace 4 is already off.'
     $.ui.invalidate('ui.render')
     return note
   }
   let text = ''
-  const label = on ? 'Showing X on trace 4' : 'Hiding trace 4'
+  const label = show ? 'Showing X on trace 4' : 'Hiding trace 4'
   const end = await intent(
     $,
     label,
     async () => {
-      const r = await script($, ['xtrace', on ? 'on' : 'off', '--session', SESSION], 15_000)
+      const r = await script($, ['xtrace', show ? 'on' : 'off', '--session', SESSION], 15_000)
       const bad = deviceTrouble(r)
       if (bad) {
         text = bad
@@ -2477,7 +2477,7 @@ async function setXTrace($: any, on: boolean): Promise<string> {
       note = text
       return r.ok === false ? failed(text) : true
     },
-    { key: K.xtrace(on), plan: () => ({ step: 'setting trace 4', ms: 1200, id: 'xtrace' }) },
+    { key: K.xtrace(show), plan: () => ({ step: 'setting trace 4', ms: 1200, id: 'xtrace' }) },
   )
   return endText(end, text, label)
 }
@@ -2620,12 +2620,12 @@ async function setTrimTarget($: any, f: number): Promise<void> {
   const b = activeBand() ?? MESH_BAND
   trimTargets = { ...trimTargets, [b.id]: f }
   // The timeline measured against the new target: each change's distance, and which ones passed it.
-  const on = trimTols(f).on
+  const tolOn = trimTols(f).on
   trimPts = trimPts.map((p, k) => {
     const delta = p.f - f
     const prev = trimPts[k - 1]
     const { passed: _, ...rest } = p
-    return { ...rest, delta, target: f, ...(prev && crossed(prev.f - f, delta, on) ? { passed: true } : {}) }
+    return { ...rest, delta, target: f, ...(prev && crossed(prev.f - f, delta, tolOn) ? { passed: true } : {}) }
   })
   trimRecent = []
   if (live) trimFeed(await $.clock.now())

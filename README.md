@@ -208,6 +208,8 @@ Then run `/reload-plugins` in a session that's already open.
 - **Files it writes:** your antennas, sweeps, screenshots, QC log and certificates and report cards in `~/NanoVNA`; the tab's state (the latest reading, band presets, calibration records, a log of button presses) in `~/Library/Application Support/vna`; a lock and a lease file in `~/Library/Caches/vna`; the status line in `~/.claude/mod-status/vna.json` (for the Herdr app's strip); and the tab's own preferences (colours, view, toggles) in Claude Code's per-plugin store.
 - **Network:** the plugin opens no port and sends nothing to any server. The one exception is the experimental Wi-Fi option, and it is off unless you create `~/Library/Application Support/vna/bridge.json`: then the script makes a TCP connection (port 23 by default) to the host or address you put in that file, a Heltec V4 bridge on your own network, and talks to the NanoVNA through it. Without that file the script never touches the network.
 - **Nothing goes to Anthropic or anyone else from the plugin itself.** What Claude reads through the three tools (`vna_reading`, `vna_antennas`, `vna_action`) becomes part of your conversation like any other tool result.
+- **Its hooks:** the `tool.call` hooks answer only the plugin's own three tools (that is how a mod provides tools), and the `command.run` hook answers only `/vna`. It doesn't read, change or send anything else from the conversation, and it never makes a permission decision.
+- **Environment:** it reads `HOME` (to find its folders) and `HC_TERMINAL_ID` (so the Herdr app shows the status in the right terminal). It reads no keys, tokens or passwords. `~/.claude/mod-status/vna.json` is a display file for Herdr's status strip, not a Claude Code setting.
 
 ## Wildcat RF
 

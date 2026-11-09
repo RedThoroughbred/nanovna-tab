@@ -1,5 +1,5 @@
 import type { Register } from 'claude-code'
-import { KEEP_FRESH_MS, keepModStatusFresh, postModStatus, startModStatus, type Level } from './mod-status'
+import type { Level, ModLine } from './mod-status'
 import { parseAction, registerTools, TOOL_PREFIX } from './tools'
 import { AMBER, ANT, AXIS, BG, BRIGHT, CYAN, DEFAULT_RULES, EXPLAIN, GREEN, GRID, IDLE_MS, LABEL, LCD, LIVE_COLOR, LIVE_MS, LOG_MAX, MAGENTA, MESH, MESH_BAND, MONO, ORANGE, PANE, PATH, PINK, PLOT, POLL_LOG_MS, RED, SANS, SECTIONS, SKY, VIEWS, VIOLET, W_DESK, W_PHONE, YELLOW } from './constants'
 import { DIPOLE_TARGETS, FREQ_STOPS, bandColor, bandVerdict, cardAlt, crossed, dipoleCm, dipoleSvg, fcol, fmtF, fmtOff, lcdNumber, lcdText, meter, qcAlt, resWords, resonanceOf, rlPoints, ruler, swrOfRl, trimArrow, trimOf, whip } from './gauges'
@@ -7,6 +7,101 @@ import { GRADE_COLOR, HIST_MAX, MAX_OVERLAYS, bandLabel, bg, clamp, day, drawnAt
 import { BAND_DEF, areaOf, at, base, blurDef, bracket, cut, dipMark, fadeMask, glowDef, hits, legend, meshDots, n1, niceStep, pathOf, pill, pillRect, placePill, plotBounds, primaryOf, svgDoc, tw, txt, wrapText, zoneCols, zoneFill, zoneGrad } from './svg-kit'
 import { Btn, CMD_WAIT_MS, COLOR_NAMES, EXPORT_PIECE, EXPORT_W, FRESH_MS, Pic, Row, SESSION, TOOL_WAIT_MS, actionQ, ago, blocks, compareRows, compareTextOf, deviceTrouble, guideSvg, guideText, heroLine, isRules, learned, meterBar, nestSvg, parseRules, pollLogged, pollQ, procId, ruleText, stamp, swrLevel, wanted } from './tab-text'
 import type { ActEnd, ActOpts, Badge, BandDef, CalView, Ctx, Frame, Geo, Group, Intent, Item, Lane, Live, Look, Mark, Metrics, Plan, Presets, Proc, Qc, QcCheck, QcLog, Rect, Resonance, Rules, Section, Series, TabView, TrimPoint, TrimRead, TrimWords, View } from './types'
+
+// ---- The mod-status file (the Herdr strip), moved here from mod-status.ts ----
+// The keep-fresh tick: call keepModStatusFresh this often. A rewrite is due after REWRITE_MS, so
+// the file is never more than 10 minutes old while the mod runs.
+const KEEP_FRESH_MS = 60_000
+const REWRITE_MS = 9 * 60_000
+// A change of text alone (a reading that moves each sweep) is written at most this often; a change
+// of level, or the line appearing, is written at once. The minute tick writes whatever is left.
+const MIN_GAP_MS = 15_000
+
+let mod = ''
+let herdr: boolean | undefined
+let dir: string | null = null
+let started: Promise<void> | null = null
+// The line to show; undefined when there is nothing to say, null when it isn't known yet (a first
+// reading still running), which leaves the file to whatever another session last wrote.
+let want: ModLine | undefined | null = null
+// What the file holds as far as this session knows: null unknown, '' none, else level|text.
+let wrote: string | null = null
+let wroteLevel: Level | null = null
+let wroteAt = 0
+let chain: Promise<void> = Promise.resolve()
+
+// Reads HC_TERMINAL_ID and HOME once. Await it at session.start, so the first post sets the status
+// line at once.
+function startModStatus($: any, name: string): Promise<void> {
+  mod = name
+  started ??= (async () => {
+    try {
+      herdr = Boolean(await $.env.get('HC_TERMINAL_ID'))
+    } catch {
+      herdr = false
+    }
+    try {
+      const home = await $.env.get('HOME')
+      if (home) dir = `${home}/.claude/mod-status`
+    } catch {}
+  })()
+  return started
+}
+
+// Whether this session runs inside Herdr (false until startModStatus has read it).
+function inHerdr(): boolean {
+  return herdr === true
+}
+
+async function sync($: any): Promise<void> {
+  if (!dir || !mod || want === null) return
+  const file = `${dir}/${mod}.json`
+  if (!want) {
+    if (wrote !== '') {
+      await $.process.run(['/bin/rm', '-f', file], { timeoutMs: 5_000 })
+      wrote = ''
+      wroteLevel = null
+    }
+    return
+  }
+  const key = `${want.level}|${want.text}`
+  const now = await $.clock.now()
+  if (key === wrote && now - wroteAt < REWRITE_MS) return
+  if (wrote && key !== wrote && want.level === wroteLevel && now - wroteAt < MIN_GAP_MS) return
+  const tmp = `${dir}/.${mod}.${Math.random().toString(36).slice(2, 10)}.tmp`
+  await $.fs.write(tmp, `${JSON.stringify({ mod, text: want.text, level: want.level, at: now })}\n`)
+  const r = await $.process.run(['/bin/mv', '-f', tmp, file], { timeoutMs: 5_000 })
+  if (r.exitCode !== 0) {
+    await $.process.run(['/bin/rm', '-f', tmp], { timeoutMs: 5_000 })
+    return
+  }
+  wrote = key
+  wroteLevel = want.level
+  wroteAt = now
+}
+
+// Shows the line: statusText on the status line (outside Herdr only), line in the file. undefined
+// clears each; a null line leaves the file alone (nothing known yet).
+function postModStatus($: any, statusText: string | undefined, line: ModLine | undefined | null): Promise<void> {
+  want = line
+  const known = herdr !== undefined
+  if (known && !herdr) $.ui.status(statusText)
+  chain = chain
+    .then(async () => {
+      if (started) await started
+      if (!known && !herdr) $.ui.status(statusText)
+      await sync($)
+    })
+    .catch(() => {})
+  return chain
+}
+
+// Rewrites the file when it is due; call it every KEEP_FRESH_MS.
+function keepModStatusFresh($: any): Promise<void> {
+  chain = chain.then(() => sync($)).catch(() => {})
+  return chain
+}
+
 
 // The home folder comes from the environment at session.start (setHome), never from the code.
 let HOME = ''
@@ -2077,8 +2172,8 @@ async function loadStore($: any): Promise<void> {
     cmpA = typeof a === 'string' ? a : null
     const b = await $.store.get('cmpB')
     cmpB = typeof b === 'string' ? b : null
-    const h = await $.store.get('histLabel')
-    histLabel = typeof h === 'string' ? h : null
+    const hl = await $.store.get('histLabel')
+    histLabel = typeof hl === 'string' ? hl : null
     // 0.4.0 kept QC as a mode of its own; it is the QC place now.
     const q = await $.store.get('qcOn')
     if (q === true && sec === undefined) section = 'qc'
@@ -2713,7 +2808,7 @@ function numbersSvg(g: Geo): string {
   p.push(`<rect x="0" y="0" width="${W}" height="${H}" rx="12" fill="${BG}"/>`)
   p.push(txt(14, 22, 'THE NUMBERS', { size: 10.5, fill: LCD, weight: 700, spacing: 1.5 }))
   const cols: [string, number][] = [['SWR', 92], ['RL dB', 140], ['refl %', 194], ['loss dB', 246], ['Z Ω', 300]]
-  for (const [h, x] of cols) p.push(txt(x, 40, h, { size: 8.5, anchor: 'middle', fill: AXIS, weight: 700 }))
+  for (const [head, x] of cols) p.push(txt(x, 40, head, { size: 8.5, anchor: 'middle', fill: AXIS, weight: 700 }))
   rows.forEach((k, i) => {
     const y = 60 + i * 34
     p.push(`<rect x="10" y="${y - 14}" width="${W - 20}" height="28" rx="6" fill="#0f1a1e"/>`)

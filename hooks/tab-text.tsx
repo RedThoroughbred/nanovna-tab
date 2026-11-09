@@ -41,8 +41,8 @@ export function guideSvg(g: Geo): string {
   let y = 46
   const rows: number[] = []
   for (let i = 0; i < cards.length; i += cols) {
-    const h = Math.max(...cards.slice(i, i + cols).map(cardH))
-    rows.push(h)
+    const rowH = Math.max(...cards.slice(i, i + cols).map(cardH))
+    rows.push(rowH)
   }
   const gH = rows.reduce((a, b) => a + b + gap, 0)
   const canH = 40 + can.reduce((a, k) => a + 22 + k.lines.length * 14, 0)
@@ -54,9 +54,9 @@ export function guideSvg(g: Geo): string {
     const row = Math.floor(i / cols)
     const cx = 14 + col * (cw + gap)
     const cy = y + rows.slice(0, row).reduce((a, b) => a + b + gap, 0)
-    const h = rows[row] ?? cardH(k)
-    parts.push(`<rect x="${n1(cx)}" y="${n1(cy)}" width="${n1(cw)}" height="${n1(h)}" rx="10" fill="#0f161a" stroke="${k.col}" stroke-opacity="0.45"/>`)
-    parts.push(`<rect x="${n1(cx)}" y="${n1(cy + 10)}" width="4" height="${n1(h - 20)}" rx="2" fill="${k.col}"/>`)
+    const ch = rows[row] ?? cardH(k)
+    parts.push(`<rect x="${n1(cx)}" y="${n1(cy)}" width="${n1(cw)}" height="${n1(ch)}" rx="10" fill="#0f161a" stroke="${k.col}" stroke-opacity="0.45"/>`)
+    parts.push(`<rect x="${n1(cx)}" y="${n1(cy + 10)}" width="4" height="${n1(ch - 20)}" rx="2" fill="${k.col}"/>`)
     parts.push(`<circle cx="${n1(cx + 24)}" cy="${n1(cy + 20)}" r="11" fill="${k.col}" fill-opacity="0.16" stroke="${k.col}"/>`)
     parts.push(txt(cx + 24, cy + 24.5, String(i + 1), { anchor: 'middle', size: 11, weight: 800, fill: k.col }))
     parts.push(txt(cx + 42, cy + 25, k.t, { size: 13, weight: 700, fill: k.col, font: SANS }))
@@ -236,10 +236,10 @@ export function svgHeight(source: string, maxW: number): number | undefined {
   const vb = /viewBox="\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/.exec(head)
   const wa = /<svg[^>]*\swidth="([\d.]+)"/.exec(head)
   const w = vb ? Number(vb[1]) : NaN
-  const h = vb ? Number(vb[2]) : NaN
-  if (!(w > 0 && h > 0)) return undefined
+  const vh = vb ? Number(vb[2]) : NaN
+  if (!(w > 0 && vh > 0)) return undefined
   const drawn = Math.min(wa ? Number(wa[1]) : w, maxW)
-  return Math.round((drawn * h) / w)
+  return Math.round((drawn * vh) / w)
 }
 
 export const EXPORT_W = 540
@@ -251,20 +251,20 @@ export function nestSvg(src: string, x: number, y: number, w: number, prefix: st
   const vb = /viewBox="\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/.exec(src.slice(0, 800))
   const W = Number(vb?.[1] ?? 360)
   const H = Number(vb?.[2] ?? 200)
-  const h = Math.round((w * H) / W)
+  const nh = Math.round((w * H) / W)
   const body = src
     .replace(/^<svg[^>]*>/, '')
     .replace(/<\/svg>\s*$/, '')
     .replace(/\sid="([^"]+)"/g, ` id="${prefix}$1"`)
     .replace(/url\(#([^)]+)\)/g, `url(#${prefix}$1)`)
     .replace(/href="#([^"]+)"/g, `href="#${prefix}$1"`)
-  return { svg: `<svg x="${x}" y="${y}" width="${w}" height="${h}" viewBox="0 0 ${W} ${H}" overflow="hidden">${body}</svg>`, h }
+  return { svg: `<svg x="${x}" y="${y}" width="${w}" height="${nh}" viewBox="0 0 ${W} ${H}" overflow="hidden">${body}</svg>`, h: nh }
 }
 
 export function stamp(t: number): string {
   const d = new Date(t)
-  const h = d.getHours()
-  return `${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} · ${h % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`
+  const hr = d.getHours()
+  return `${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} · ${hr % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')} ${hr < 12 ? 'am' : 'pm'}`
 }
 
 // A picture with its height from its markup (svgHeight), so a refreshed picture never drops to no

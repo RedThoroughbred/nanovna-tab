@@ -1,6 +1,6 @@
 ---
 name: antenna-coach
-description: Coaches the person through reading and tuning an antenna with their NanoVNA and the VNA tab (the vna plugin's tools vna_reading, vna_antennas, vna_action). Use whenever they ask about antenna SWR, return loss, impedance or the Smith chart, whether an antenna is tuned or good enough, how to trim, cut or lengthen a whip or dipole, a Meshtastic or MeshCore antenna, comparing antennas, or what a NanoVNA reading means, even if they never say VNA.
+description: Coaches the person through reading and tuning an antenna with their NanoVNA and the VNA tab (the wildcat-vna plugin's tools vna_reading, vna_antennas, vna_action). Use whenever they ask about antenna SWR, return loss, impedance or the Smith chart, whether an antenna is tuned or good enough, how to trim, cut or lengthen a whip or dipole, a Meshtastic or MeshCore antenna, comparing antennas, or what a NanoVNA reading means, even if they never say VNA.
 ---
 
 # Antenna coach

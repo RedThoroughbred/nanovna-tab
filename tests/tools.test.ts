@@ -2,7 +2,7 @@ import { describe, expect, test } from 'claude-code/testing'
 
 import { LIVE, LIVE_RESONANT } from './fixture'
 import { LIVE_2M } from './fixture-bands'
-import { LIVE_FILE, NOW, start, world, type World } from './world'
+import { LIVE_FILE, NOW, TOOL_PREFIX, start, world, type World } from './world'
 
 // The three tools Claude can call (hooks/tools.ts), through the same fake world as the tab:
 // vna.py answered from the fixtures, files in memory, no NanoVNA anywhere.
@@ -10,7 +10,7 @@ import { LIVE_FILE, NOW, start, world, type World } from './world'
 const NAMES = ['vna_reading', 'vna_antennas', 'vna_action'] as const
 
 async function call($: any, tool: (typeof NAMES)[number], input: Record<string, unknown> = {}): Promise<string> {
-  const r = await $.tool.call({ tool: `mcp__vna__${tool}`, ...input })
+  const r = await $.tool.call({ tool: `${TOOL_PREFIX}${tool}`, ...input })
   return String((r as any).text ?? (r as any).result ?? '')
 }
 

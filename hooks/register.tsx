@@ -1,6 +1,6 @@
 import type { Register } from 'claude-code'
 import { KEEP_FRESH_MS, keepModStatusFresh, postModStatus, startModStatus, type Level } from './mod-status'
-import { parseAction, registerTools } from './tools'
+import { parseAction, registerTools, TOOL_PREFIX } from './tools'
 
 // The VNA tab: a NanoVNA on the Mac's USB (or the Wi-Fi bridge), driven
 // through scripts/vna.py, built to teach antenna reading and to test units.
@@ -5148,14 +5148,14 @@ async function toolAct($: any, verb: string, arg: string): Promise<string> {
 
 export const register: Register = on => {
   // The three tools (registered at session.start by registerTools): each answers a failure in words.
-  on('tool.call', { tool: 'mcp__vna__vna_reading' }, async ($, e) => {
+  on('tool.call', { tool: `${TOOL_PREFIX}vna_reading` }, async ($, e) => {
     try {
       return { result: await toolReading($, (e as any).fresh === true) }
     } catch (err: any) {
       return { result: `The VNA tool failed: ${String(err?.message ?? err)}` }
     }
   })
-  on('tool.call', { tool: 'mcp__vna__vna_antennas' }, async ($, e) => {
+  on('tool.call', { tool: `${TOOL_PREFIX}vna_antennas` }, async ($, e) => {
     const q = e as any
     const s = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined)
     try {
@@ -5164,7 +5164,7 @@ export const register: Register = on => {
       return { result: `The VNA tool failed: ${String(err?.message ?? err)}` }
     }
   })
-  on('tool.call', { tool: 'mcp__vna__vna_action' }, async ($, e) => {
+  on('tool.call', { tool: `${TOOL_PREFIX}vna_action` }, async ($, e) => {
     const p = parseAction(e)
     if (!p.ok) return { result: p.say }
     try {

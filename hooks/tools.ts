@@ -3,6 +3,9 @@
 // themselves are answered in register.tsx (the tab's state lives there), so a tool call and a click on
 // the tab go through the very same code, queue and lock.
 
+// Tool names are mcp__<plugin name>__<tool>, with the hyphens of the plugin name kept.
+export const TOOL_PREFIX = 'mcp__wildcat-vna__'
+
 const SAFETY =
   'Never connect a transmitting radio, or a node\'s antenna output, to the NanoVNA: it can destroy the NanoVNA\'s input. Ask the person to unscrew an antenna from a node only while the node is off.'
 

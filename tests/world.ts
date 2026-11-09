@@ -5,6 +5,8 @@ import { LIBRARY, LIVE, QC_LOG } from './fixture'
 import { PRESETS } from './fixture-bands'
 
 // Shared by the test files: the world beneath the plugin.
+// The tools' full names: mcp__<plugin name>__<tool>, hyphens kept (the same text as TOOL_PREFIX in hooks/tools.ts).
+export const TOOL_PREFIX = 'mcp__wildcat-vna__'
 export const NOW = 1_000_000
 export const LIVE_FILE = '/Users/test/Library/Application Support/vna/live.json'
 export const LEASE_FILE = '/Users/test/Library/Caches/vna/lease.json'
@@ -76,7 +78,7 @@ export function world(on: On, live: unknown = LIVE, env?: Record<string, string>
   on('command.register', async (_$, e) => ({ value: { command: e.name } }))
   on('tool.register', async (_$, e) => {
     w.tools.push(e as any)
-    return { value: { tool: `mcp__vna__${e.name}` } }
+    return { value: { tool: `${TOOL_PREFIX}${e.name}` } }
   })
   on('ui.open', async (_$, e) => {
     w.opened.push(String((e as any).id))

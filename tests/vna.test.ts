@@ -7,7 +7,7 @@ import { LEASE_FILE, LIVE_FILE, NOW, start, stored, vna, world, type World } fro
 
 const SURFACES = ['terminal', 'desktop', 'vscode', 'mobile'] as const
 const PANE = {
-  plugin: 'vna',
+  plugin: 'wildcat-vna',
   component: 'Pane' as const,
   requestId: 'vna',
   props: { title: 'VNA', isFocused: false, bodyColumns: 100, placement: 'dock' as const, scroll: { offset: 0, bodyRows: 60 }, view: {} },

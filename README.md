@@ -25,13 +25,13 @@ I test and tune antennas for my Meshtastic and MeshCore nodes. The NanoVNA knows
 In Claude Code 2.1.275 or later, type:
 
 ```
-/plugin install vna --marketplace RedThoroughbred/nanovna-tab
+/plugin install wildcat-vna --marketplace RedThoroughbred/nanovna-tab
 ```
 
 In the Claude desktop app, `/plugin` opens the app's own plugin settings instead, so run this in a terminal:
 
 ```
-claude plugin install vna --marketplace RedThoroughbred/nanovna-tab
+claude plugin install wildcat-vna --marketplace RedThoroughbred/nanovna-tab
 ```
 
 In a session that's already open, run `/reload-plugins`. Plug in the NanoVNA and type `/vna`.
@@ -127,6 +127,10 @@ Claude can read the antenna, read your saved antennas, and do the safe things th
 > [!WARNING]
 > Claude can't calibrate, save the power-on layout, delete an antenna or write a NanoVNA save slot. Those stay in the tab, where you confirm them. And never connect a transmitting radio to the NanoVNA.
 
+## What's new in 0.8.0
+
+- **Renamed for Anthropic's plugin directory:** the plugin is now `wildcat-vna` (shown as Wildcat VNA). The `/vna` command works as before. If you installed it under the old name, run `claude plugin uninstall vna@nanovna-tab`, then the new install line above, then `/reload-plugins`. Your saved antennas stay; a few tab preferences, such as colours and toggles, start fresh.
+
 ## What's new in 0.7.0
 
 - **Tools for Claude:** `vna_reading`, `vna_antennas` and `vna_action`, so Claude can read the antenna, your Library, and do the safe button presses.
@@ -137,7 +141,7 @@ Claude can read the antenna, read your saved antennas, and do the safe things th
 
 ```
 claude plugin marketplace update nanovna-tab
-claude plugin update vna@nanovna-tab
+claude plugin update wildcat-vna@nanovna-tab
 ```
 
 Then run `/reload-plugins` in a session that's already open.
@@ -157,7 +161,7 @@ Then run `/reload-plugins` in a session that's already open.
 
 ## Wildcat RF
 
-nanovna-tab is part of Wildcat RF, the radio instruments I build for Claude Code. Its sibling is [rtl-sdr-tab](https://github.com/RedThoroughbred/rtl-sdr-tab), a Radio tab for the RTL-SDR Blog V4, in the same instrument look.
+nanovna-tab is part of Wildcat RF, the radio instruments I build for Claude Code. Its sibling is [rtl-sdr-tab](https://github.com/RedThoroughbred/rtl-sdr-tab) (the `wildcat-radio` plugin, Wildcat Radio), a Radio tab for the RTL-SDR Blog V4, in the same instrument look.
 
 I built it with Claude Code as my coding partner.
 

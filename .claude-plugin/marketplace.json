@@ -6,7 +6,7 @@
   },
   "plugins": [
     {
-      "name": "vna",
+      "name": "wildcat-vna",
       "source": "./",
       "category": "productivity",
       "homepage": "https://github.com/RedThoroughbred/nanovna-tab",

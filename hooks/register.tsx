@@ -1,6 +1,6 @@
 import type { Register } from 'claude-code'
 import type { Level, ModLine } from './mod-status'
-import { parseAction, registerTools, TOOL_PREFIX } from './tools'
+import { parseAction, TOOL_PREFIX, ACTION_DESCRIPTION, ANTENNAS_DESCRIPTION, READING_DESCRIPTION } from './tools'
 import { AMBER, ANT, AXIS, BG, BRIGHT, CYAN, DEFAULT_RULES, EXPLAIN, GREEN, GRID, IDLE_MS, LABEL, LCD, LIVE_COLOR, LIVE_MS, LOG_MAX, MAGENTA, MESH, MESH_BAND, MONO, ORANGE, PANE, PATH, PINK, PLOT, POLL_LOG_MS, RED, SANS, SECTIONS, SKY, VIEWS, VIOLET, W_DESK, W_PHONE, YELLOW } from './constants'
 import { DIPOLE_TARGETS, FREQ_STOPS, bandColor, bandVerdict, cardAlt, crossed, dipoleCm, dipoleSvg, fcol, fmtF, fmtOff, lcdNumber, lcdText, meter, qcAlt, resWords, resonanceOf, rlPoints, ruler, swrOfRl, trimArrow, trimOf, whip } from './gauges'
 import { GRADE_COLOR, HIST_MAX, MAX_OVERLAYS, bandLabel, bg, clamp, day, drawnAt, esc, fmt, gam, gammaOfZ, grade, gradeOf, hashLabel, iso, itemSeries, lim, meaning, n2, r1, sameSweep, shade, trend, verdict, verdictLine, zOfGamma, zText, zone } from './readings'
@@ -2863,7 +2863,7 @@ function exportSvg(name: string, now: number): string {
   const add = (src: string, k: string) => {
     const n = nestSvg(src, x0, y, EXPORT_PIECE, `${k}-`)
     parts.push(n.svg)
-    y += n.h + 14
+    y += n.height + 14
   }
   if (m) add(heroSvg(m, g), 'hero')
   const series = mainSeries()
@@ -3811,6 +3811,49 @@ async function toolAct($: any, verb: string, arg: string): Promise<string> {
         return 'Not available as a tool.'
     }
   }
+}
+
+// The three tools, registered at session.start. Kept in this file: the plugin directory wants a hook's $
+// passed only to functions declared in the same file.
+async function registerTools($: any): Promise<void> {
+  await $.tool.register({
+    name: 'vna_reading',
+    description: READING_DESCRIPTION,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        fresh: { type: 'boolean', description: 'Take a new sweep now instead of using a shared reading under 10 seconds old. Use it right after the person changes the antenna.' },
+      },
+    },
+    isDeferred: false,
+  })
+  await $.tool.register({
+    name: 'vna_antennas',
+    description: ANTENNAS_DESCRIPTION,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'A saved antenna (a unique start of its name is enough): returns its history.' },
+        a: { type: 'string', description: 'With b: the first antenna to compare.' },
+        b: { type: 'string', description: 'With a: the second antenna to compare.' },
+      },
+    },
+    isDeferred: false,
+  })
+  await $.tool.register({
+    name: 'vna_action',
+    description: ACTION_DESCRIPTION,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['save', 'markers', 'band', 'trim', 'export'] },
+        name: { type: 'string', description: 'For save: the antenna name (a new version when it already exists). For export: an optional title for the card.' },
+        value: { type: 'string', description: 'For markers: "mesh" or "best". For band: a band id, or "mesh" to go back. For trim: "snip", "reset", "meshtastic", "meshcore" or a target in MHz.' },
+      },
+      required: ['action'],
+    },
+    isDeferred: false,
+  })
 }
 
 export const register: Register = on => {

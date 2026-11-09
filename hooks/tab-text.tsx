@@ -247,7 +247,7 @@ export const EXPORT_W = 540
 export const EXPORT_PIECE = 500
 
 // One picture placed inside the card, its ids renamed so no two pictures share a gradient or a filter.
-export function nestSvg(src: string, x: number, y: number, w: number, prefix: string): { svg: string; h: number } {
+export function nestSvg(src: string, x: number, y: number, w: number, prefix: string): { svg: string; height: number } {
   const vb = /viewBox="\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/.exec(src.slice(0, 800))
   const W = Number(vb?.[1] ?? 360)
   const H = Number(vb?.[2] ?? 200)
@@ -258,7 +258,7 @@ export function nestSvg(src: string, x: number, y: number, w: number, prefix: st
     .replace(/\sid="([^"]+)"/g, ` id="${prefix}$1"`)
     .replace(/url\(#([^)]+)\)/g, `url(#${prefix}$1)`)
     .replace(/href="#([^"]+)"/g, `href="#${prefix}$1"`)
-  return { svg: `<svg x="${x}" y="${y}" width="${w}" height="${nh}" viewBox="0 0 ${W} ${H}" overflow="hidden">${body}</svg>`, h: nh }
+  return { svg: `<svg x="${x}" y="${y}" width="${w}" height="${nh}" viewBox="0 0 ${W} ${H}" overflow="hidden">${body}</svg>`, height: nh }
 }
 
 export function stamp(t: number): string {

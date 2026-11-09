@@ -18,5 +18,8 @@
     "ham-radio",
     "meshtastic",
     "meshcore"
-  ]
+  ],
+  "documentationUrl": "https://github.com/RedThoroughbred/nanovna-tab/blob/main/docs/details.md",
+  "supportUrl": "https://github.com/RedThoroughbred/nanovna-tab/issues",
+  "privacyPolicyUrl": "https://github.com/RedThoroughbred/nanovna-tab#what-it-runs-and-sends"
 }

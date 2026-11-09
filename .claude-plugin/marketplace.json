@@ -10,7 +10,7 @@
       "source": "./",
       "category": "productivity",
       "homepage": "https://github.com/RedThoroughbred/nanovna-tab",
-      "description": "A VNA tab that drives a NanoVNA over USB and teaches what it reads: live SWR at the mesh frequencies with a grade and a verdict, SWR / return loss / R & X / Smith views, a live trim assistant, an antenna library with history and compare, a QC mode with PASS/FAIL and certificates, band presets with their own calibration slots, and a report-card export. /vna to open it. Claude can read the antenna and do the safe button presses with three tools, and the antenna-coach skill teaches SWR and trimming."
+      "description": "A NanoVNA tab for Claude Code on the Mac: live SWR at the Meshtastic and MeshCore frequencies with a plain-language grade, a trim assistant, an antenna library, QC and band presets. Claude can read the antenna and coach a trim."
     }
   ]
 }

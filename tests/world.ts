@@ -1,12 +1,11 @@
 import { mock } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
+import { TOOL_PREFIX } from '../hooks/tools'
 import { LIBRARY, LIVE, QC_LOG } from './fixture'
 import { PRESETS } from './fixture-bands'
 
 // Shared by the test files: the world beneath the plugin.
-// The tools' full names: mcp__<plugin name>__<tool>, hyphens kept (the same text as TOOL_PREFIX in hooks/tools.ts).
-export const TOOL_PREFIX = 'mcp__wildcat-vna__'
 export const NOW = 1_000_000
 export const LIVE_FILE = '/Users/test/Library/Application Support/vna/live.json'
 export const LEASE_FILE = '/Users/test/Library/Caches/vna/lease.json'

@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'claude-code/testing'
 
+import { TOOL_PREFIX } from '../hooks/tools'
 import { LIVE, LIVE_RESONANT } from './fixture'
 import { LIVE_2M } from './fixture-bands'
-import { LIVE_FILE, NOW, TOOL_PREFIX, start, world, type World } from './world'
+import { LIVE_FILE, NOW, start, world, type World } from './world'
 
 // The three tools Claude can call (hooks/tools.ts), through the same fake world as the tab:
 // vna.py answered from the fixtures, files in memory, no NanoVNA anywhere.

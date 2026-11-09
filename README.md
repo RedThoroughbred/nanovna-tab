@@ -201,6 +201,14 @@ Then run `/reload-plugins` in a session that's already open.
 > [!WARNING]
 > Never connect a transmitting radio, or a node's antenna output, to the NanoVNA. It can destroy the NanoVNA's input.
 
+## What it runs and sends
+
+- **Programs it starts:** `python3 scripts/vna.py` (the plugin's own script, standard library only) to talk to the NanoVNA, and `/usr/bin/open` when you press an "open" button for a log, a folder, a certificate or a screenshot. `vna.py` runs `/usr/sbin/ioreg` to find the NanoVNA in the USB device tree, and for PNG exports it runs headless Google Chrome (a throwaway profile) or `rsvg-convert`, whichever is installed. Nothing else is started, and nothing is installed.
+- **The NanoVNA:** the script opens only the serial port of the device named NanoVNA, and sends it the same console commands you could type yourself. It does not calibrate, save the power-on layout or write a save slot unless you ask in the tab.
+- **Files it writes:** your antennas, sweeps, screenshots, QC log and certificates and report cards in `~/NanoVNA`; the tab's state (the latest reading, band presets, calibration records, a log of button presses) in `~/Library/Application Support/vna`; a lock and a lease file in `~/Library/Caches/vna`; the status line in `~/.claude/mod-status/vna.json` (for the Herdr app's strip); and the tab's own preferences (colours, view, toggles) in Claude Code's per-plugin store.
+- **Network:** the plugin opens no port and sends nothing to any server. The one exception is the experimental Wi-Fi option, and it is off unless you create `~/Library/Application Support/vna/bridge.json`: then the script makes a TCP connection (port 23 by default) to the host or address you put in that file, a Heltec V4 bridge on your own network, and talks to the NanoVNA through it. Without that file the script never touches the network.
+- **Nothing goes to Anthropic or anyone else from the plugin itself.** What Claude reads through the three tools (`vna_reading`, `vna_antennas`, `vna_action`) becomes part of your conversation like any other tool result.
+
 ## Wildcat RF
 
 nanovna-tab is part of Wildcat RF, the radio instruments I build for Claude Code. Its sibling is [rtl-sdr-tab](https://github.com/RedThoroughbred/rtl-sdr-tab) (the `wildcat-radio` plugin, Wildcat Radio), a Radio tab for the RTL-SDR Blog V4, in the same instrument look.

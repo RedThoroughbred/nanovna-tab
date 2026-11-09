@@ -5,6 +5,8 @@ description: Coaches the person through reading and tuning an antenna with their
 
 # Antenna coach
 
+If the tools below (`vna_reading`, `vna_antennas`, `vna_action`) are not available, for example in claude.ai chat, where the tab cannot run, say that reading a live antenna needs Claude Code on a Mac with the NanoVNA plugged in, then still answer the question from general knowledge.
+
 Teach from first principles, one idea at a time, in plain words and short sentences. The person reads on a phone a lot, so lead with the answer, then the one thing to do next. Use real numbers from the tools, never guesses.
 
 ## Tools

@@ -1,8 +1,14 @@
-<p align="center">
-  <img src="docs/images/banner.png" alt="The VNA tab reading an antenna: SWR 1.52 at 906.875 MHz, grade B, beside its Smith chart" width="100%">
-</p>
+<div align="center">
 
-<p align="center"><img src=".claude-plugin/icon.png" alt="nanovna-tab icon: a Smith chart with a glowing trace curling into the 50-ohm centre" width="112"></p>
+![The VNA tab reading an antenna: SWR 1.52 at 906.875 MHz, grade B, beside its Smith chart](docs/images/banner.png)
+
+</div>
+
+<div align="center">
+
+![nanovna-tab icon: a Smith chart with a glowing trace curling into the 50-ohm centre](docs/images/icon-112.png)
+
+</div>
 
 <h1 align="center">nanovna-tab</h1>
 
@@ -11,12 +17,11 @@
   Plug the NanoVNA into your Mac, type <code>/vna</code>, and it reads your antenna every three seconds, grades it, and tells you in plain words what it means and what to do next.
 </p>
 
-<p align="center">
-  <img alt="Claude Code plugin" src="docs/badges/claude-code.svg">
-  <img alt="NanoVNA-H4 with DiSlord firmware 1.2.x" src="docs/badges/nanovna.svg">
-  <img alt="macOS over USB" src="docs/badges/macos.svg">
-  <a href="LICENSE"><img alt="MIT license" src="docs/badges/license.svg"></a>
-</p>
+<div align="center">
+
+![Claude Code plugin](docs/badges/claude-code.svg) ![NanoVNA-H4 with DiSlord firmware 1.2.x](docs/badges/nanovna.svg) ![macOS over USB](docs/badges/macos.svg) [![MIT license](docs/badges/license.svg)](LICENSE)
+
+</div>
 
 I test and tune antennas for my Meshtastic and MeshCore nodes. The NanoVNA knows everything about an antenna, but it says it in numbers on a 4-inch screen. I wanted those numbers to explain themselves, right where I already work. So I built this tab: it turns the NanoVNA into an instrument panel beside Claude Code, and it teaches you what you're looking at while you use it.
 
@@ -49,68 +54,105 @@ In a session that's already open, run `/reload-plugins`. Plug in the NanoVNA and
 
 ### Measure: the reading, the grade and what it means
 
-<p align="center"><img src="docs/images/grades.png" alt="Three readings side by side: SWR 1.46 grade A in green, 1.72 grade B in amber, 9.99 grade F in red" width="100%"></p>
+<div align="center">
+
+![Three readings side by side: SWR 1.46 grade A in green, 1.72 grade B in amber, 9.99 grade F in red](docs/images/grades.png)
+
+</div>
 
 The big number is the SWR at the Meshtastic frequency (906.875 MHz), with MeshCore's (910.525 MHz) under it, a meter, a letter grade and one line that says what it means. The colours follow the usual zones: under 1.5 is excellent, under 2 is good, above 3 is poor.
 
-<p align="center"><img src="docs/images/measure.png" alt="The Measure place: the NanoVNA's status, the reading, the readings at three frequencies, the markers and a trim hint for a simple whip" width="677"></p>
+<div align="center">
+
+![The Measure place: the NanoVNA's status, the reading, the readings at three frequencies, the markers and a trim hint for a simple whip](docs/images/measure.png)
+
+</div>
 
 Under the reading: the SWR, verdict and impedance at 906.875, 910.525 and 915 MHz, the NanoVNA's own markers, and a trim hint. For a simple whip it says which way to go and about how far ("slightly short by ~1.1 mm").
 
 ### Four ways to see one sweep
 
-<p align="center"><img src="docs/images/charts.png" alt="The same sweep as an SWR chart, a return-loss chart, resistance and reactance, and a Smith chart" width="100%"></p>
+<div align="center">
+
+![The same sweep as an SWR chart, a return-loss chart, resistance and reactance, and a Smith chart](docs/images/charts.png)
+
+</div>
 
 SWR, return loss, R & X and the Smith chart, each with the mesh band marked and a few lines under it on how to read it. A saved antenna can sit on the chart beside the live trace.
 
 ### Trim: the live trim assistant
 
-<p align="center"><img src="docs/images/trim.png" alt="The trim assistant: resonance at 925.8 MHz, 19 MHz high, add a little length, with a timeline of changes" width="677"></p>
+<div align="center">
+
+![The trim assistant: resonance at 925.8 MHz, 19 MHz high, add a little length, with a timeline of changes](docs/images/trim.png)
+
+</div>
 
 For cutting or bending an antenna. It shows where the antenna resonates now against the target and which way to go, and logs every change on a timeline. Cut past the target and it tells you, and how to undo it.
 
 ### Library and compare
 
-<table>
-<tr>
-<td width="50%"><img src="docs/images/library.png" alt="Four saved antennas as cards, each in its own colour, with a sparkline and their SWR at 907, 910.5 and best"></td>
-<td width="50%"><img src="docs/images/compare.png" alt="Two antennas compared: a table of SWR, best and resonance with the better value starred, and both on one Smith chart"></td>
-</tr>
-</table>
+| | |
+|---|---|
+| ![Four saved antennas as cards, each in its own colour, with a sparkline and their SWR at 907, 910.5 and best](docs/images/library.png) | ![Two antennas compared: a table of SWR, best and resonance with the better value starred, and both on one Smith chart](docs/images/compare.png) |
 
 Save an antenna by name and it becomes a card in its own colour, with every version kept. Pick A and B to compare two: the better value gets a star, and both curves share the chart.
 
 ### QC: PASS or FAIL
 
-<p align="center"><img src="docs/images/qc.png" alt="QC mode: a red FAIL stamp with three checks, the band's worst SWR and the SWR at both mesh frequencies" width="677"></p>
+<div align="center">
+
+![QC mode: a red FAIL stamp with three checks, the band's worst SWR and the SWR at both mesh frequencies](docs/images/qc.png)
+
+</div>
 
 For testing units: a PASS or FAIL stamp from your rule (by default SWR 2 or better across 902–928 MHz, and 1.5 or better at both mesh frequencies), a CSV log, and a certificate for each unit you save.
 
 ### Bands
 
-<p align="center"><img src="docs/images/bands.png" alt="The band map: FM, 2 m, 70 cm, 433, 1090 and the mesh band, each with its save slot and calibration state" width="677"></p>
+<div align="center">
+
+![The band map: FM, 2 m, 70 cm, 433, 1090 and the mesh band, each with its save slot and calibration state](docs/images/bands.png)
+
+</div>
 
 2 m, 70 cm, ADS-B 1090, 433 MHz ISM, FM broadcast and bands of your own, each calibrated into its own save slot. Power-on is always slot 0, the mesh layout, and nothing writes it unless you ask by name.
 
-<p align="center"><img src="docs/images/v4-dipole.png" alt="The V4 dipole helper: each element 6.6 cm for 1090 MHz" width="677"></p>
+<div align="center">
+
+![The V4 dipole helper: each element 6.6 cm for 1090 MHz](docs/images/v4-dipole.png)
+
+</div>
 
 The V4 dipole helper gives each element's length for the RTL-SDR Blog V4 kit's dipole, then sweeps that band so you can confirm the dip.
 
 ### The guide
 
-<p align="center"><img src="docs/images/guide.png" alt="How the VNA tab works: eight cards for Measure, Trim, Library, QC, Bands, Calibrate, Buttons and Several sessions" width="677"></p>
+<div align="center">
+
+![How the VNA tab works: eight cards for Measure, Trim, Library, QC, Bands, Calibrate, Buttons and Several sessions](docs/images/guide.png)
+
+</div>
 
 Press **?** for how the tab works and what your NanoVNA can do, checked against DiSlord's firmware source.
 
 ### When nothing is connected
 
-<p align="center"><img src="docs/images/port-open.png" alt="PORT 1 reads open: nothing is connecting, with what to check" width="677"></p>
+<div align="center">
+
+![PORT 1 reads open: nothing is connecting, with what to check](docs/images/port-open.png)
+
+</div>
 
 An open port, a loose connector or an RP-SMA antenna on an SMA port reads as nothing on PORT 1, and the tab says what to check.
 
 ### 📸 Export: a report card
 
-<p align="center"><a href="docs/images/report-card.png"><img src="docs/images/report-card.png" alt="The exported report card: the reading, the SWR chart, the Smith chart and a table of numbers in one tall image" width="360"></a></p>
+<div align="center">
+
+[![The exported report card: the reading, the SWR chart, the Smith chart and a table of numbers in one tall image](docs/images/report-card-small.png)](docs/images/report-card.png)
+
+</div>
 
 One press makes a tall report card from the tab's own pictures, as an SVG and a 1080-pixel-wide PNG, ready to share.
 
